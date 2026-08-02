@@ -1,32 +1,50 @@
-import { NativeTabs } from 'expo-router/unstable-native-tabs';
-import { useColorScheme } from 'react-native';
+import { SymbolView } from 'expo-symbols';
+import { Tabs } from 'expo-router';
 
-import { Colors } from '@/constants/theme';
+import { AppTabBar } from '@/components/app-tab-bar';
+
+type SymbolName = React.ComponentProps<typeof SymbolView>['name'];
+type SymbolColor = React.ComponentProps<typeof SymbolView>['tintColor'];
+
+function TabIcon({ name, color, size }: { name: SymbolName; color: SymbolColor; size: number }) {
+  return <SymbolView name={name} tintColor={color} size={size} />;
+}
 
 export default function AppTabs() {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
-
   return (
-    <NativeTabs
-      backgroundColor={colors.background}
-      indicatorColor={colors.backgroundElement}
-      labelStyle={{ selected: { color: colors.text } }}>
-      <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/home.png')}
-          renderingMode="template"
-        />
-      </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger name="explore">
-        <NativeTabs.Trigger.Label>Explore</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/explore.png')}
-          renderingMode="template"
-        />
-      </NativeTabs.Trigger>
-    </NativeTabs>
+    <Tabs
+      tabBar={(props) => <AppTabBar {...props} />}
+      screenOptions={{
+        headerShown: false,
+      }}>
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: '首页',
+          tabBarIcon: ({ color, size }) => <TabIcon name={{ ios: 'house', android: 'home', web: 'home' }} color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="transactions"
+        options={{
+          title: '账单',
+          tabBarIcon: ({ color, size }) => <TabIcon name={{ ios: 'list.bullet', android: 'list', web: 'list' }} color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="assets"
+        options={{
+          title: '资产',
+          tabBarIcon: ({ color, size }) => <TabIcon name={{ ios: 'wallet.pass', android: 'wallet', web: 'wallet' }} color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: '设置',
+          tabBarIcon: ({ color, size }) => <TabIcon name={{ ios: 'gearshape', android: 'settings', web: 'settings' }} color={color} size={size} />,
+        }}
+      />
+    </Tabs>
   );
 }
