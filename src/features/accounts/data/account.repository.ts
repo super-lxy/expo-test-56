@@ -6,6 +6,9 @@ type AccountRow = {
   id: string;
   name: string;
   type: Account['type'];
+  kind: Account['kind'];
+  icon: string;
+  color: string;
   initial_balance_cents: number;
   currency: string;
 };
@@ -15,6 +18,9 @@ function mapAccount(row: AccountRow): Account {
     id: row.id,
     name: row.name,
     type: row.type,
+    kind: row.kind ?? 'asset',
+    icon: row.icon ?? '💰',
+    color: row.color ?? '#64748B',
     initialBalanceCents: row.initial_balance_cents,
     currency: row.currency,
   };
@@ -25,7 +31,7 @@ export class AccountRepository {
 
   async list(): Promise<Account[]> {
     const rows = await this.db.getAllAsync<AccountRow>(
-      'SELECT id, name, type, initial_balance_cents, currency FROM accounts ORDER BY created_at'
+      'SELECT id, name, type, kind, icon, color, initial_balance_cents, currency FROM accounts ORDER BY created_at'
     );
     return rows.map(mapAccount);
   }
@@ -70,11 +76,14 @@ export class AccountRepository {
     const now = new Date().toISOString();
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     await this.db.runAsync(
-      `INSERT INTO accounts (id, name, type, initial_balance_cents, currency, created_at)
-       VALUES (?, ?, ?, ?, 'CNY', ?)`,
+      `INSERT INTO accounts (id, name, type, kind, icon, color, initial_balance_cents, currency, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'CNY', ?)`,
       id,
       draft.name.trim(),
       draft.type,
+      draft.kind,
+      draft.icon,
+      draft.color,
       draft.initialBalanceCents,
       now
     );

@@ -1,11 +1,12 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useRef, useState } from 'react';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Alert, Keyboard, Modal, Platform, Pressable, ScrollView, StatusBar, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { findTemplate } from '@/features/accounts/domain/account.templates';
 import { CategoryGrid } from '@/features/transactions/components/CategoryGrid';
 import { TransactionKeypad } from '@/features/transactions/components/TransactionKeypad';
 import type { TransactionType } from '@/features/transactions/domain/transaction.types';
@@ -15,7 +16,7 @@ import { parseAmountToCents } from '@/shared/utils/currency';
 import { formatDateTime } from '@/shared/utils/date';
 import { useTheme } from '@/hooks/use-theme';
 
-const TYPE_OPTIONS: Array<{ label: string; type?: TransactionType }> = [
+const TYPE_OPTIONS: { label: string; type?: TransactionType }[] = [
   { label: '支出', type: 'expense' },
   { label: '收入', type: 'income' },
   { label: '转账', type: 'transfer' },
@@ -39,27 +40,31 @@ export function TransactionFormScreen() {
   const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
   const [accountPicker, setAccountPicker] = useState<'source' | 'target' | null>(null);
   const [noteFocused, setNoteFocused] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const { categories, accounts } = useTransactionFormData(type === 'income' ? 'income' : 'expense');
-  const selectedAccount = accounts.find((account) => account.id === accountId);
-  const selectedTransferAccount = accounts.find((account) => account.id === transferAccountId);
 
-  useEffect(() => {
-    if (accounts.length === 0) return;
-    if (!accounts.some((account) => account.id === accountId)) {
-      setAccountId(accounts[0].id);
+  // 用 derive 代替 effect 纠正 state，避免额外的渲染循环。
+  // state 只记录用户的原始选择，render 时再 clamp 到合法值。
+  const effectiveAccountId = accounts.length > 0 && !accounts.some((a) => a.id === accountId)
+    ? accounts[0].id
+    : accountId;
+  const effectiveTransferAccountId = (() => {
+    if (accounts.length === 0) return transferAccountId;
+    if (!transferAccountId || transferAccountId === effectiveAccountId || !accounts.some((a) => a.id === transferAccountId)) {
+      return accounts.find((a) => a.id !== effectiveAccountId)?.id ?? '';
     }
-    if (!transferAccountId || transferAccountId === accountId || !accounts.some((account) => account.id === transferAccountId)) {
-      setTransferAccountId(accounts.find((account) => account.id !== accountId)?.id ?? '');
-    }
-  }, [accountId, accounts, transferAccountId]);
+    return transferAccountId;
+  })();
+  const effectiveCategoryId = (() => {
+    if (categories.length === 0 || categories.some((c) => c.id === categoryId)) return categoryId;
+    const root = categories.find((c) => c.parentId === null);
+    const defaultCat = root ? (categories.find((c) => c.parentId === root.id) ?? root) : undefined;
+    return defaultCat?.id ?? categoryId;
+  })();
 
-  useEffect(() => {
-    const root = categories.find((category) => category.parentId === null);
-    const defaultCategory = root ? categories.find((category) => category.parentId === root.id) ?? root : undefined;
-    if (defaultCategory && !categories.some((category) => category.id === categoryId)) {
-      setCategoryId(defaultCategory.id);
-    }
-  }, [categories, categoryId]);
+  const selectedAccount = accounts.find((account) => account.id === effectiveAccountId);
+  const selectedTransferAccount = accounts.find((account) => account.id === effectiveTransferAccountId);
 
   function handleTypeChange(nextType: TransactionType) {
     setType(nextType);
@@ -76,16 +81,18 @@ export function TransactionFormScreen() {
   }
 
   function handleDateChange(event: DateTimePickerEvent, value?: Date) {
-    if (value) setOccurredAt(value);
     if (event.type === 'dismissed') {
       setShowDatePicker(false);
       return;
     }
+    if (value) setOccurredAt(value);
     if (Platform.OS === 'android' && pickerMode === 'date' && value) {
       setPickerMode('time');
       return;
     }
-    if (event.type === 'set') setShowDatePicker(false);
+    if (Platform.OS === 'android' && event.type === 'set') {
+      setShowDatePicker(false);
+    }
   }
 
   function handleKeyPress(key: string) {
@@ -102,27 +109,18 @@ export function TransactionFormScreen() {
     setAmount((value) => value.slice(0, -1));
   }
 
-  function cycleAccount() {
-    if (accounts.length < 2) return;
-    const currentIndex = accounts.findIndex((account) => account.id === accountId);
-    setAccountId(accounts[(currentIndex + 1) % accounts.length].id);
-  }
-
-  function cycleTransferAccount() {
-    const candidates = accounts.filter((account) => account.id !== accountId);
-    if (candidates.length === 0) return;
-    const currentIndex = candidates.findIndex((account) => account.id === transferAccountId);
-    setTransferAccountId(candidates[(currentIndex + 1) % candidates.length].id);
-  }
-
   async function handleSubmit(continueEntry = false) {
+    if (submittingRef.current) return;
+
+    submittingRef.current = true;
+    setIsSubmitting(true);
     try {
       await createTransaction(repository, {
         type,
         amountCents: parseAmountToCents(amount),
-        categoryId: type === 'transfer' ? 'transfer' : categoryId,
-        accountId,
-        transferAccountId: type === 'transfer' ? transferAccountId : undefined,
+        categoryId: type === 'transfer' ? 'transfer' : effectiveCategoryId,
+        accountId: effectiveAccountId,
+        transferAccountId: type === 'transfer' ? effectiveTransferAccountId : undefined,
         occurredAt: occurredAt.toISOString(),
         note,
       });
@@ -134,6 +132,9 @@ export function TransactionFormScreen() {
       }
     } catch (error) {
       Alert.alert('无法保存', error instanceof Error ? error.message : '请稍后重试');
+    } finally {
+      submittingRef.current = false;
+      setIsSubmitting(false);
     }
   }
 
@@ -160,7 +161,7 @@ export function TransactionFormScreen() {
         </View>
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          {type !== 'transfer' ? <CategoryGrid categories={categories} selectedCategoryId={categoryId} onCategoryChange={setCategoryId} /> : <View style={styles.transferHint}><ThemedText style={styles.transferIcon}>⇄</ThemedText><ThemedText style={styles.transferTitle}>账户间转账</ThemedText><ThemedText type="small" themeColor="textSecondary">选择转出和转入账户</ThemedText></View>}
+          {type !== 'transfer' ? <CategoryGrid categories={categories} selectedCategoryId={effectiveCategoryId} onCategoryChange={setCategoryId} onSettingsPress={() => router.push('/categories')} /> : <View style={styles.transferHint}><ThemedText style={styles.transferIcon}>⇄</ThemedText><ThemedText style={styles.transferTitle}>账户间转账</ThemedText><ThemedText type="small" themeColor="textSecondary">选择转出和转入账户</ThemedText></View>}
 
         </ScrollView>
 
@@ -199,9 +200,11 @@ export function TransactionFormScreen() {
             style={[styles.noteInput, { color: theme.text }]}
           />
           <Pressable onPress={openDatePicker} style={styles.datePill}><ThemedText style={styles.dateIcon}>▦</ThemedText><ThemedText style={styles.dateText}>{formatDateTime(occurredAt)}</ThemedText></Pressable>
-          <ThemedText style={[styles.amountPreview, { color: type === 'income' ? '#2D7185' : type === 'transfer' ? '#6A6A74' : '#D85C50' }]}>¥{amount || '0.00'}</ThemedText>
+          <Pressable onPress={() => { Keyboard.dismiss(); setNoteFocused(false); }}>
+            <ThemedText style={[styles.amountPreview, { color: type === 'income' ? '#2D7185' : type === 'transfer' ? '#6A6A74' : '#D85C50' }]}>¥{amount || '0.00'}</ThemedText>
+          </Pressable>
         </View>
-        {!noteFocused ? <TransactionKeypad onKeyPress={handleKeyPress} onBackspace={handleBackspace} onSave={() => void handleSubmit()} onSaveAndContinue={() => void handleSubmit(true)} /> : null}
+        {!noteFocused ? <TransactionKeypad disabled={isSubmitting} onKeyPress={handleKeyPress} onBackspace={handleBackspace} onSave={() => void handleSubmit()} onSaveAndContinue={() => void handleSubmit(true)} /> : null}
         <Modal visible={showDatePicker} transparent animationType="fade" onRequestClose={() => setShowDatePicker(false)}>
           <View style={styles.pickerBackdrop}>
             <View style={styles.pickerCard}>
@@ -215,14 +218,14 @@ export function TransactionFormScreen() {
           <View style={styles.pickerBackdrop}>
             <View style={styles.accountSheet}>
               <ThemedText style={styles.pickerTitle}>{accountPicker === 'target' ? '选择转入账户' : '选择账户'}</ThemedText>
-              {accounts.filter((account) => accountPicker !== 'target' || account.id !== accountId).map((account) => (
+              {accounts.filter((account) => accountPicker !== 'target' || account.id !== effectiveAccountId).map((account) => (
                 <Pressable key={account.id} style={styles.accountChoice} onPress={() => {
                   if (accountPicker === 'target') setTransferAccountId(account.id);
                   else setAccountId(account.id);
                   setAccountPicker(null);
                 }}>
                   <ThemedText style={styles.accountChoiceName}>{account.name}</ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">{account.type}</ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">{findTemplate(account.type)?.label ?? '其他'}</ThemedText>
                 </Pressable>
               ))}
               <Pressable onPress={() => setAccountPicker(null)} style={styles.pickerCancel}><ThemedText themeColor="textSecondary">取消</ThemedText></Pressable>
@@ -237,22 +240,22 @@ export function TransactionFormScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
   safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
-  topPanel: { backgroundColor: '#DDEFE2', paddingHorizontal: 10, paddingBottom: 7 },
+  topPanel: { backgroundColor: '#F5F7FA', paddingHorizontal: 10, paddingBottom: 7 },
   header: { minHeight: 53, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  back: { fontSize: 37, lineHeight: 38, color: '#1F3528', fontWeight: '300' },
+  back: { fontSize: 37, lineHeight: 38, color: '#17212B', fontWeight: '300' },
   typeBar: { flex: 1 },
   typeBarContent: { flexGrow: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 5 },
   typeItem: { paddingHorizontal: 8, paddingVertical: 7, borderRadius: 20 },
-  activeType: { backgroundColor: '#183C39' },
-  typeText: { fontSize: 15, lineHeight: 20, fontWeight: '700', color: '#1D2A24' },
+  activeType: { backgroundColor: '#1C2128' },
+  typeText: { fontSize: 15, lineHeight: 20, fontWeight: '700', color: '#71808C' },
   activeTypeText: { color: '#FFFFFF' },
-  disabledTypeItem: { opacity: 0.72 },
-  disabledType: { color: '#5F6068' },
-  settings: { fontSize: 24, color: '#777780' },
+  disabledTypeItem: { opacity: 0.45 },
+  disabledType: { color: '#9AABB0' },
+  settings: { fontSize: 24, color: '#71808C' },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 10 },
   transferHint: { alignItems: 'center', justifyContent: 'center', paddingVertical: 45, gap: 7 },
-  transferIcon: { fontSize: 50, color: '#607B6C' },
+  transferIcon: { fontSize: 50, color: '#5A6B78' },
   transferTitle: { fontSize: 18, fontWeight: '800' },
   quickOptions: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 6, paddingBottom: 8, gap: 8, backgroundColor: '#FFFFFF' },
   quickOption: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 4, paddingVertical: 3 },
@@ -260,11 +263,11 @@ const styles = StyleSheet.create({
   quickIconText: { color: '#FFFFFF', fontWeight: '900', fontSize: 15 },
   quickText: { fontSize: 12, lineHeight: 17, fontWeight: '700', color: '#3E403E' },
   inputBar: { minHeight: 64, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 9, gap: 7, borderTopWidth: 1, borderColor: '#E6ECE8', backgroundColor: '#FFFFFF' },
-  downButton: { width: 38, height: 38, borderRadius: 12, backgroundColor: '#E7F2E9', alignItems: 'center', justifyContent: 'center' },
-  downText: { fontSize: 25, lineHeight: 27, color: '#426C61' },
+  downButton: { width: 38, height: 38, borderRadius: 12, backgroundColor: '#ECEEF0', alignItems: 'center', justifyContent: 'center' },
+  downText: { fontSize: 25, lineHeight: 27, color: '#4A6070' },
   noteInput: { flex: 1, minWidth: 70, fontSize: 14, lineHeight: 20, paddingVertical: 8, color: '#6E7772' },
-  datePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 7, paddingVertical: 8, borderRadius: 14, backgroundColor: '#F2F7F3' },
-  dateIcon: { color: '#4A846D', fontSize: 16 },
+  datePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 7, paddingVertical: 8, borderRadius: 14, backgroundColor: '#ECEEF0' },
+  dateIcon: { color: '#5A6B78', fontSize: 16 },
   dateText: { fontSize: 13, fontWeight: '700' },
   amountPreview: { fontSize: 22, fontWeight: '800', minWidth: 78, textAlign: 'right' },
   pickerBackdrop: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: 'rgba(20, 28, 32, 0.35)' },

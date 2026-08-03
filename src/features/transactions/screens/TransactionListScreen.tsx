@@ -1,5 +1,6 @@
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useHideTabBarOnScroll } from '@/hooks/use-hide-tab-bar-on-scroll';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -10,7 +11,8 @@ import { dateKey, formatDayGroup } from '@/shared/utils/date';
 
 export function TransactionListScreen() {
   const { transactions, loading } = useTransactions();
-  const groups = transactions.reduce<Array<{ key: string; label: string; items: typeof transactions }>>((result, transaction) => {
+  const onScroll = useHideTabBarOnScroll();
+  const groups = transactions.reduce<{ key: string; label: string; items: typeof transactions }[]>((result, transaction) => {
     const key = dateKey(transaction.occurredAt);
     const existing = result.find((group) => group.key === key);
     if (existing) existing.items.push(transaction);
@@ -27,7 +29,7 @@ export function TransactionListScreen() {
             {loading ? '加载中…' : `${transactions.length} 笔记录`}
           </ThemedText>
         </View>
-        <ScrollView contentContainerStyle={transactions.length === 0 ? styles.emptyList : styles.list} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={transactions.length === 0 ? styles.emptyList : styles.list} showsVerticalScrollIndicator={false} onScroll={onScroll} scrollEventThrottle={16}>
           {groups.map((group) => (
             <View key={group.key} style={styles.group}>
               <ThemedText style={styles.dayTitle}>{group.label}</ThemedText>

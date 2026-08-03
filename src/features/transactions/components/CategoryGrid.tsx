@@ -25,13 +25,17 @@ export function CategoryGrid({
   categories,
   selectedCategoryId,
   onCategoryChange,
+  onSettingsPress,
 }: {
   categories: Category[];
   selectedCategoryId: string;
   onCategoryChange: (id: string) => void;
+  onSettingsPress?: () => void;
 }) {
   const [expandedRootId, setExpandedRootId] = useState<string | null>(null);
   const roots = categories.filter((category) => category.parentId === null);
+  // null 作为「设置」格的占位哨兵
+  const displayItems: (Category | null)[] = onSettingsPress ? [...roots, null] : roots;
   const selected = categories.find((category) => category.id === selectedCategoryId);
   const selectedRootId = selected?.parentId ?? selected?.id;
   const expandedRoot = roots.find((category) => category.id === expandedRootId);
@@ -48,21 +52,32 @@ export function CategoryGrid({
 
   return (
     <View style={styles.container}>
-      {rowsOf(roots, 5).map((row, rowIndex) => (
+      {rowsOf(displayItems, 5).map((row, rowIndex) => (
         <View key={rowIndex} style={styles.row}>
-          {row.map((category) => {
-            const isSelected = category.id === selectedCategoryId || category.id === selectedRootId;
-            const icon = ICONS[category.id] ?? category.icon;
+          {row.map((item) => {
+            // 设置格
+            if (item === null) {
+              return (
+                <Pressable key="__settings__" onPress={onSettingsPress} style={styles.cell}>
+                  <View style={styles.settingsIconBox}>
+                    <ThemedText style={styles.icon}>{'⚙️'}</ThemedText>
+                  </View>
+                  <ThemedText style={[styles.label, styles.settingsLabel]} numberOfLines={1}>分类</ThemedText>
+                </Pressable>
+              );
+            }
+            const isSelected = item.id === selectedCategoryId || item.id === selectedRootId;
+            const icon = ICONS[item.id] ?? item.icon;
             return (
               <Pressable
-                key={category.id}
-                onPress={() => handleRootPress(category)}
+                key={item.id}
+                onPress={() => handleRootPress(item)}
                 style={styles.cell}>
                 <View style={[styles.iconBox, isSelected && styles.selectedIconBox]}>
                   <ThemedText style={styles.icon}>{icon}</ThemedText>
-                  {categories.some((item) => item.parentId === category.id) ? <View style={styles.moreBadge}><ThemedText style={styles.moreText}>•••</ThemedText></View> : null}
+                  {categories.some((c) => c.parentId === item.id) ? <View style={styles.moreBadge}><ThemedText style={styles.moreText}>›</ThemedText></View> : null}
                 </View>
-                <ThemedText style={styles.label} numberOfLines={1}>{category.name}</ThemedText>
+                <ThemedText style={styles.label} numberOfLines={1}>{item.name}</ThemedText>
               </Pressable>
             );
           })}
@@ -125,11 +140,13 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 6 },
   cell: { flex: 1, alignItems: 'center', gap: 5 },
   iconBox: { width: 61, height: 61, borderRadius: 16, backgroundColor: '#F4F5F4', alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  selectedIconBox: { backgroundColor: '#D9ECDD' },
+  selectedIconBox: { backgroundColor: '#D8E4EE' },
+  settingsIconBox: { width: 61, height: 61, borderRadius: 16, backgroundColor: '#EAEDF0', alignItems: 'center', justifyContent: 'center' },
   icon: { fontSize: 30 },
   label: { fontSize: 12, lineHeight: 17, fontWeight: '600', color: '#353634' },
-  moreBadge: { position: 'absolute', right: -3, bottom: -3, width: 21, height: 21, borderRadius: 11, backgroundColor: '#4B5560', alignItems: 'center', justifyContent: 'center' },
-  moreText: { color: '#FFFFFF', fontSize: 8, lineHeight: 9, letterSpacing: -1 },
+  settingsLabel: { color: '#71808C' },
+  moreBadge: { position: 'absolute', right: 1, bottom: 1, width: 17, height: 17, borderRadius: 9, backgroundColor: 'rgba(255,255,255,0.93)', borderWidth: 1, borderColor: 'rgba(0,0,0,0.07)', alignItems: 'center', justifyContent: 'center', elevation: 1 },
+  moreText: { color: '#8C96A0', fontSize: 11, lineHeight: 12, fontWeight: '700' },
   modalRoot: { flex: 1, justifyContent: 'flex-end' },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(25, 28, 27, 0.38)' },
   sheet: { maxHeight: '70%', paddingTop: 9, paddingBottom: 26, borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: '#FFFFFF' },
@@ -146,5 +163,5 @@ const styles = StyleSheet.create({
   childIconBox: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   childIcon: { fontSize: 22 },
   childLabel: { flex: 1, fontSize: 16, lineHeight: 22, fontWeight: '600', color: '#2D332F' },
-  checkmark: { fontSize: 20, fontWeight: '700', color: '#2D7185' },
+  checkmark: { fontSize: 20, fontWeight: '700', color: '#3A6A8A' },
 });

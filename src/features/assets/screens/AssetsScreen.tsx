@@ -2,32 +2,18 @@ import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useHideTabBarOnScroll } from '@/hooks/use-hide-tab-bar-on-scroll';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
-import type { AccountBalance, AccountType } from '@/features/accounts/domain/account.types';
+import type { AccountBalance } from '@/features/accounts/domain/account.types';
+import { findTemplate } from '@/features/accounts/domain/account.templates';
 import { useAccounts } from '@/features/accounts/hooks/useAccounts';
 import { NetWorthChart } from '@/features/dashboard/components/NetWorthChart';
 import { buildNetWorthTrend } from '@/features/dashboard/domain/netWorth';
 import { useMonthlySummary, useTransactions } from '@/features/transactions/hooks/useTransactions';
 import { formatCurrency } from '@/shared/utils/currency';
-
-const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
-  cash: '现金',
-  bank: '银行卡',
-  wallet: '电子钱包',
-  'credit-card': '信用卡',
-  other: '其他',
-};
-
-const ACCOUNT_TYPE_ICONS: Record<AccountType, string> = {
-  cash: '▣',
-  bank: '▤',
-  wallet: '◒',
-  'credit-card': '▰',
-  other: '◇',
-};
+import { buildAssetBreakdown } from '../domain/assetBuckets';
 
 function formatPercent(value: number, total: number) {
   if (!total) return '0%';
@@ -35,15 +21,18 @@ function formatPercent(value: number, total: number) {
 }
 
 function AccountCard({ account, total }: { account: AccountBalance; total: number }) {
+  const typeLabel = findTemplate(account.type)?.label ?? '其他';
   return (
     <View style={styles.accountCard}>
       <View style={styles.accountCardHeader}>
         <ThemedText style={styles.accountName}>{account.name}</ThemedText>
-        <View style={styles.accountIcon}><ThemedText style={styles.accountIconText}>{ACCOUNT_TYPE_ICONS[account.type]}</ThemedText></View>
+        <View style={[styles.accountIcon, { backgroundColor: `${account.color}1A` }]}>
+          <ThemedText style={styles.accountIconText}>{account.icon}</ThemedText>
+        </View>
       </View>
       <ThemedText style={styles.accountAmount}>{formatCurrency(account.balanceCents)}</ThemedText>
       <ThemedText type="small" themeColor="textSecondary">
-        {ACCOUNT_TYPE_LABELS[account.type]} · {formatPercent(account.balanceCents, total)}
+        {typeLabel} · {formatPercent(account.balanceCents, total)}
       </ThemedText>
     </View>
   );
@@ -53,19 +42,18 @@ export function AssetsScreen() {
   const router = useRouter();
   const [range, setRange] = useState<'all' | 'day' | 'week' | 'month'>('day');
   const { accounts } = useAccounts();
+  const onScroll = useHideTabBarOnScroll();
   const { transactions } = useTransactions();
   const { summary } = useMonthlySummary();
-  const totalAssets = accounts.reduce((sum, account) => sum + account.balanceCents, 0);
+  const totalAssets = accounts.filter((a) => a.kind !== 'liability').reduce((sum, a) => sum + a.balanceCents, 0);
   const monthlyChange = summary.incomeCents - summary.expenseCents;
-  const cashAssets = accounts.filter((account) => account.type === 'cash').reduce((sum, account) => sum + account.balanceCents, 0);
-  const bankAssets = accounts.filter((account) => account.type === 'bank').reduce((sum, account) => sum + account.balanceCents, 0);
-  const walletAssets = accounts.filter((account) => account.type === 'wallet').reduce((sum, account) => sum + account.balanceCents, 0);
+  const slices = useMemo(() => buildAssetBreakdown(accounts), [accounts]);
   const trend = useMemo(() => buildNetWorthTrend(accounts, transactions), [accounts, transactions]);
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} onScroll={onScroll} scrollEventThrottle={16}>
           <View style={styles.topBar}>
             <View style={styles.topActions}>
               <ThemedText style={styles.topIcon}>⌾</ThemedText>
@@ -74,7 +62,7 @@ export function AssetsScreen() {
             </View>
             <ThemedText style={styles.pageTitle}>记账资产</ThemedText>
             <Pressable style={styles.moreButton} onPress={() => router.push('/accounts')}>
-              <ThemedText style={styles.moreText}>•••　◎</ThemedText>
+              <ThemedText style={styles.moreText}>账户 ›</ThemedText>
             </Pressable>
           </View>
 
@@ -85,9 +73,16 @@ export function AssetsScreen() {
             </View>
             <ThemedText style={styles.heroAmount}>{formatCurrency(totalAssets)}</ThemedText>
             <View style={styles.heroChips}>
-              <View style={[styles.heroChip, styles.cashChip]}><ThemedText style={styles.chipDot}>●</ThemedText><ThemedText style={styles.chipText}>现金 {formatPercent(accounts.filter((a) => a.type === 'cash').reduce((s, a) => s + a.balanceCents, 0), totalAssets)}</ThemedText></View>
-              <View style={[styles.heroChip, styles.accountChip]}><ThemedText style={styles.chipDot}>●</ThemedText><ThemedText style={styles.chipText}>银行卡 {formatPercent(bankAssets, totalAssets)}</ThemedText></View>
-              <View style={[styles.heroChip, styles.otherChip]}><ThemedText style={styles.chipDot}>●</ThemedText><ThemedText style={styles.chipText}>电子钱包 {formatPercent(walletAssets, totalAssets)}</ThemedText></View>
+              {slices.length > 0 ? slices.map((slice) => (
+                <View key={slice.key} style={[styles.heroChip, { backgroundColor: slice.color }]}>
+                  <ThemedText style={styles.chipDot}>●</ThemedText>
+                  <ThemedText style={styles.chipText}>{slice.label} {slice.percent}%</ThemedText>
+                </View>
+              )) : (
+                <View style={[styles.heroChip, styles.emptyChip]}>
+                  <ThemedText style={styles.chipText}>还没有资产账户</ThemedText>
+                </View>
+              )}
             </View>
           </View>
 
@@ -138,9 +133,7 @@ const styles = StyleSheet.create({
   heroAmount: { color: '#FFFFFF', fontSize: 34, lineHeight: 42, fontWeight: '900' },
   heroChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 4 },
   heroChip: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 5 },
-  cashChip: { backgroundColor: '#9DAB9C' },
-  accountChip: { backgroundColor: '#C1AE70' },
-  otherChip: { backgroundColor: '#B89BA0' },
+  emptyChip: { backgroundColor: 'rgba(255,255,255,0.22)' },
   chipDot: { color: '#FFFFFF', fontSize: 8, marginRight: 4 },
   chipText: { color: '#FFFFFF', fontSize: 11, fontWeight: '600' },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 3 },

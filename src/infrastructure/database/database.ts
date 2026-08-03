@@ -3,7 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 export const DATABASE_NAME = 'ledger.db';
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
-  const DATABASE_VERSION = 4;
+  const DATABASE_VERSION = 5;
   const versionRow = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
   let currentVersion = versionRow?.user_version ?? 0;
 
@@ -16,6 +16,20 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     await addColumnIfMissing(db, 'transactions', 'transfer_account_id TEXT');
   }
 
+  // v5：账户增加 资产/负债 分类和图标
+  if (currentVersion > 0 && currentVersion < 5) {
+    await addColumnIfMissing(db, 'accounts', "kind TEXT NOT NULL DEFAULT 'asset'");
+    await addColumnIfMissing(db, 'accounts', "icon TEXT NOT NULL DEFAULT '💰'");
+    await addColumnIfMissing(db, 'accounts', "color TEXT NOT NULL DEFAULT '#64748B'");
+    // 负债的金额统一以正数存储（欠款额），kind 决定加减方向
+    await db.runAsync(
+      `UPDATE accounts
+       SET kind = 'liability', initial_balance_cents = ABS(initial_balance_cents)
+       WHERE type = 'credit-card'`
+    );
+    await db.runAsync(`UPDATE accounts SET icon = '💵', color = '#22C55E' WHERE type = 'cash' AND icon = '💰'`);
+  }
+
   await db.execAsync(`
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
@@ -24,6 +38,9 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       id TEXT PRIMARY KEY NOT NULL,
       name TEXT NOT NULL,
       type TEXT NOT NULL,
+      kind TEXT NOT NULL DEFAULT 'asset',
+      icon TEXT NOT NULL DEFAULT '💰',
+      color TEXT NOT NULL DEFAULT '#64748B',
       initial_balance_cents INTEGER NOT NULL DEFAULT 0,
       currency TEXT NOT NULL DEFAULT 'CNY',
       created_at TEXT NOT NULL
@@ -64,11 +81,14 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
 
   const now = new Date().toISOString();
   await db.runAsync(
-    `INSERT OR IGNORE INTO accounts (id, name, type, initial_balance_cents, currency, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT OR IGNORE INTO accounts (id, name, type, kind, icon, color, initial_balance_cents, currency, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     'cash',
     '现金',
     'cash',
+    'asset',
+    '💵',
+    '#22C55E',
     0,
     'CNY',
     now
@@ -116,7 +136,7 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     await addDefaultSubcategories(db);
   }
 
-  currentVersion = 4;
+  currentVersion = 5;
 
   await db.runAsync(
     `UPDATE categories SET parent_id = ? WHERE id IN (?, ?, ?, ?, ?) AND parent_id IS NULL`,

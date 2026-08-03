@@ -31,15 +31,12 @@ export function useTransactions() {
     }
   }, [repository]);
 
+  // useFocusEffect 在挂载和每次聚焦时都会触发，已覆盖首次加载，无需额外 useEffect
   useFocusEffect(
     useCallback(() => {
       void refresh();
     }, [refresh])
   );
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
 
   return { transactions, loading, refresh };
 }
@@ -83,4 +80,17 @@ export function useTransactionFormData(type: 'income' | 'expense') {
   }, [accountRepository, categoryRepository, type]);
 
   return { categories, accounts };
+}
+
+export function useTotalSummary() {
+  const repository = useTransactionRepository();
+  const [summary, setSummary] = useState({ totalIncomeCents: 0, totalExpenseCents: 0 });
+
+  useFocusEffect(
+    useCallback(() => {
+      void repository.getAllTimeSummary().then(setSummary);
+    }, [repository])
+  );
+
+  return summary;
 }

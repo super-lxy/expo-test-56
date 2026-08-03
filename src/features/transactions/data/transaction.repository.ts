@@ -115,4 +115,18 @@ export class TransactionRepository {
     };
   }
 
+  async getAllTimeSummary(): Promise<{ totalIncomeCents: number; totalExpenseCents: number }> {
+    const row = await this.db.getFirstAsync<{ income_cents: number; expense_cents: number }>(
+      `SELECT
+         COALESCE(SUM(CASE WHEN type = 'income' THEN amount_cents ELSE 0 END), 0) AS income_cents,
+         COALESCE(SUM(CASE WHEN type = 'expense' THEN amount_cents ELSE 0 END), 0) AS expense_cents
+       FROM transactions
+       WHERE deleted_at IS NULL`
+    );
+    return {
+      totalIncomeCents: row?.income_cents ?? 0,
+      totalExpenseCents: row?.expense_cents ?? 0,
+    };
+  }
+
 }
