@@ -121,13 +121,13 @@ export function CategoryGrid({
 }
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: 10, paddingTop: 14, paddingBottom: 4, gap: 13 },
+  container: { paddingHorizontal: 10, paddingTop: 12, paddingBottom: 5, gap: 12 },
   row: { flexDirection: 'row', gap: 6 },
   cell: { flex: 1, alignItems: 'center', gap: 5 },
-  iconBox: { width: 58, height: 58, borderRadius: 18, backgroundColor: '#F5F5F6', alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  selectedIconBox: { backgroundColor: '#A8D2B0' },
-  icon: { fontSize: 28 },
-  label: { fontSize: 13, lineHeight: 18, fontWeight: '600', color: '#353634' },
+  iconBox: { width: 61, height: 61, borderRadius: 16, backgroundColor: '#F4F5F4', alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  selectedIconBox: { backgroundColor: '#D9ECDD' },
+  icon: { fontSize: 30 },
+  label: { fontSize: 12, lineHeight: 17, fontWeight: '600', color: '#353634' },
   moreBadge: { position: 'absolute', right: -3, bottom: -3, width: 21, height: 21, borderRadius: 11, backgroundColor: '#4B5560', alignItems: 'center', justifyContent: 'center' },
   moreText: { color: '#FFFFFF', fontSize: 8, lineHeight: 9, letterSpacing: -1 },
   modalRoot: { flex: 1, justifyContent: 'flex-end' },

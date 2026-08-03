@@ -39,11 +39,11 @@ export function TransactionKeypad({
 }
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: '#E8E8ED', paddingHorizontal: 12, paddingTop: 10, paddingBottom: 10, gap: 8 },
+  container: { backgroundColor: '#DDEFE2', paddingHorizontal: 12, paddingTop: 10, paddingBottom: 10, gap: 8 },
   row: { flexDirection: 'row', gap: 8 },
-  key: { flex: 1, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', shadowColor: '#9B9BA5', shadowOpacity: 0.08, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
-  saveKey: { backgroundColor: '#2D7185' },
-  keyText: { color: '#45464D', fontSize: 24, fontWeight: '600' },
-  saveText: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
+  key: { flex: 1, height: 58, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: '#E8F4EA', borderWidth: 1, borderColor: '#C9E0CE' },
+  saveKey: { backgroundColor: '#477D6C', borderColor: '#477D6C' },
+  keyText: { color: '#3B5246', fontSize: 21, fontWeight: '500' },
+  saveText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
   pressed: { opacity: 0.7, transform: [{ scale: 0.97 }] },
 });

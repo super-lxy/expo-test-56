@@ -31,6 +31,20 @@ export class CategoryRepository {
       Date.now(),
       now
     );
+    if (!input.parentId) {
+      await this.db.runAsync(
+        `INSERT OR IGNORE INTO categories (id, name, type, parent_id, icon, color, sort_order, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `${id}-default`,
+        input.name.trim(),
+        input.type,
+        id,
+        input.type === 'income' ? '💰' : '📌',
+        input.type === 'income' ? '#22C55E' : '#3B82F6',
+        Date.now() + 1,
+        now
+      );
+    }
     return id;
   }
 }

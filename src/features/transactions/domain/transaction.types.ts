@@ -6,6 +6,7 @@ export type Transaction = {
   amountCents: number;
   categoryId: string;
   categoryName: string;
+  parentCategoryName: string;
   categoryIcon: string;
   categoryColor: string;
   accountId: string;

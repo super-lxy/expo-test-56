@@ -2,8 +2,8 @@ import type { BottomTabBarProps } from 'expo-router/build/react-navigation/botto
 import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-const ACTIVE_COLOR = '#2D7185';
-const INACTIVE_COLOR = '#777780';
+const ACTIVE_COLOR = '#167C80';
+const INACTIVE_COLOR = '#83909A';
 
 function TabItem({
   route,
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 14,
     right: 14,
-    height: 74,
+    height: 68,
     zIndex: 30,
     elevation: 30,
   },
@@ -77,10 +77,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'stretch',
     backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    paddingHorizontal: 5,
-    shadowColor: '#5A5964',
-    shadowOpacity: 0.14,
+    borderRadius: 20,
+    paddingHorizontal: 7,
+    borderWidth: 1,
+    borderColor: '#E6ECEF',
+    shadowColor: '#31414D',
+    shadowOpacity: 0.12,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 5 },
     elevation: 8,
@@ -102,15 +104,15 @@ const styles = StyleSheet.create({
     gap: 1,
   },
   addButton: {
-    width: 48,
-    height: 48,
-    marginTop: -12,
-    borderRadius: 24,
+    width: 42,
+    height: 42,
+    marginTop: -9,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: ACTIVE_COLOR,
     borderWidth: 4,
-    borderColor: '#F5F4FA',
+    borderColor: '#F5F7FA',
     shadowColor: '#2D7185',
     shadowOpacity: 0.25,
     shadowRadius: 8,
@@ -123,8 +125,8 @@ const styles = StyleSheet.create({
   },
   addButtonText: {
     color: '#FFFFFF',
-    fontSize: 29,
-    lineHeight: 32,
+    fontSize: 25,
+    lineHeight: 28,
     fontWeight: '300',
   },
   addLabel: {

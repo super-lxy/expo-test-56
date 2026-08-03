@@ -3,7 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 export const DATABASE_NAME = 'ledger.db';
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
-  const DATABASE_VERSION = 3;
+  const DATABASE_VERSION = 4;
   const versionRow = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
   let currentVersion = versionRow?.user_version ?? 0;
 
@@ -112,7 +112,11 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     );
   }
 
-  currentVersion = 3;
+  if (currentVersion < 4) {
+    await addDefaultSubcategories(db);
+  }
+
+  currentVersion = 4;
 
   await db.runAsync(
     `UPDATE categories SET parent_id = ? WHERE id IN (?, ?, ?, ?, ?) AND parent_id IS NULL`,
@@ -132,5 +136,29 @@ async function addColumnIfMissing(db: SQLiteDatabase, table: string, definition:
     await db.execAsync(`ALTER TABLE ${table} ADD COLUMN ${definition}`);
   } catch {
     // The column already exists on a fresh database created with the latest schema.
+  }
+}
+
+async function addDefaultSubcategories(db: SQLiteDatabase) {
+  const roots = await db.getAllAsync<{ id: string; name: string; type: string; icon: string; color: string; sort_order: number }>(
+    `SELECT id, name, type, icon, color, sort_order
+     FROM categories
+     WHERE parent_id IS NULL AND type IN ('expense', 'income')`
+  );
+  const now = new Date().toISOString();
+  for (const root of roots) {
+    await db.runAsync(
+      `INSERT OR IGNORE INTO categories
+       (id, name, type, parent_id, icon, color, sort_order, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `${root.id}-default`,
+      root.name,
+      root.type,
+      root.id,
+      root.icon,
+      root.color,
+      root.sort_order * 100,
+      now
+    );
   }
 }

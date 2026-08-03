@@ -12,6 +12,7 @@ type TransactionRow = {
   amount_cents: number;
   category_id: string;
   category_name: string;
+  parent_category_name: string | null;
   category_icon: string;
   category_color: string;
   account_id: string;
@@ -29,6 +30,7 @@ function mapTransaction(row: TransactionRow): Transaction {
     amountCents: row.amount_cents,
     categoryId: row.category_id,
     categoryName: row.category_name,
+    parentCategoryName: row.parent_category_name ?? row.category_name,
     categoryIcon: row.category_icon,
     categoryColor: row.category_color,
     accountId: row.account_id,
@@ -51,6 +53,7 @@ export class TransactionRepository {
         t.amount_cents,
         t.category_id,
         c.name AS category_name,
+        parent_c.name AS parent_category_name,
         c.icon AS category_icon,
         c.color AS category_color,
         t.account_id,
@@ -61,6 +64,7 @@ export class TransactionRepository {
         t.note
       FROM transactions t
       INNER JOIN categories c ON c.id = t.category_id
+      LEFT JOIN categories parent_c ON parent_c.id = c.parent_id
       INNER JOIN accounts a ON a.id = t.account_id
       LEFT JOIN accounts target_a ON target_a.id = t.transfer_account_id
       WHERE t.deleted_at IS NULL

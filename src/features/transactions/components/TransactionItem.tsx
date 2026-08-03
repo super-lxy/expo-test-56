@@ -4,12 +4,12 @@ import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import type { Transaction } from '../domain/transaction.types';
 import { formatCurrency } from '@/shared/utils/currency';
-import { formatDate } from '@/shared/utils/date';
+import { formatDateTime } from '@/shared/utils/date';
 
 export function TransactionItem({ transaction }: { transaction: Transaction }) {
   const isIncome = transaction.type === 'income';
   const isTransfer = transaction.type === 'transfer';
-  const color = isTransfer ? '#777780' : isIncome ? '#D85C50' : '#30AD78';
+  const color = isTransfer ? '#71808C' : isIncome ? '#167C80' : '#E06B52';
 
   return (
     <Pressable style={({ pressed }) => [styles.container, pressed && styles.pressed]}>
@@ -21,7 +21,7 @@ export function TransactionItem({ transaction }: { transaction: Transaction }) {
           {isTransfer ? `${transaction.accountName} → ${transaction.transferAccountName ?? '账户'}` : transaction.categoryName}
         </ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
-          {[transaction.accountName, transaction.note].filter(Boolean).join(' · ')} · {formatDate(transaction.occurredAt)}
+          {[transaction.accountName, transaction.parentCategoryName, transaction.categoryName, transaction.note].filter(Boolean).join(' · ')} · {formatDateTime(transaction.occurredAt)}
         </ThemedText>
       </View>
       <ThemedText style={[styles.amount, { color }]}>
@@ -36,24 +36,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-    gap: Spacing.three,
-    marginBottom: Spacing.two,
+    borderRadius: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 9,
+    gap: 10,
+    marginBottom: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F1F2',
   },
   pressed: {
     opacity: 0.65,
   },
   icon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconText: {
-    fontSize: 21,
+    fontSize: 18,
   },
   details: {
     flex: 1,
@@ -61,10 +63,10 @@ const styles = StyleSheet.create({
   },
   category: {
     fontWeight: '600',
-    fontSize: 16,
+    fontSize: 14,
   },
   amount: {
-    fontWeight: '700',
-    fontSize: 17,
+    fontWeight: '600',
+    fontSize: 14,
   },
 });

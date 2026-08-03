@@ -12,7 +12,7 @@ import { buildNetWorthTrend } from '@/features/dashboard/domain/netWorth';
 import { TransactionItem } from '@/features/transactions/components/TransactionItem';
 import { useMonthlySummary, useTransactions } from '@/features/transactions/hooks/useTransactions';
 import { formatCurrency } from '@/shared/utils/currency';
-import { formatMonth } from '@/shared/utils/date';
+import { dateKey, formatDayGroup, formatMonth } from '@/shared/utils/date';
 
 type HomeView = 'overview' | 'calendar';
 
@@ -25,6 +25,13 @@ export function DashboardScreen() {
   const totalAssets = accounts.reduce((sum, account) => sum + account.balanceCents, 0);
   const monthlyChange = summary.incomeCents - summary.expenseCents;
   const trend = buildNetWorthTrend(accounts, transactions);
+  const groups = transactions.slice(0, 8).reduce<Array<{ key: string; label: string; items: typeof transactions }>>((result, transaction) => {
+    const key = dateKey(transaction.occurredAt);
+    const existing = result.find((group) => group.key === key);
+    if (existing) existing.items.push(transaction);
+    else result.push({ key, label: formatDayGroup(transaction.occurredAt), items: [transaction] });
+    return result;
+  }, []);
 
   return (
     <ThemedView style={styles.container}>
@@ -32,8 +39,11 @@ export function DashboardScreen() {
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.topBar}>
             <View style={styles.brandBlock}>
-              <View style={styles.brandIcon}><ThemedText style={styles.brandIconText}>¥</ThemedText></View>
-              <ThemedText style={styles.brandName}>记账</ThemedText>
+              <View style={styles.brandIcon}><ThemedText style={styles.brandIconText}>✦</ThemedText></View>
+              <View>
+                <ThemedText style={styles.brandName}>Finch</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">今天也要好好生活</ThemedText>
+              </View>
             </View>
             <Pressable hitSlop={10}><ThemedText style={styles.menu}>☰</ThemedText></Pressable>
           </View>
@@ -79,21 +89,25 @@ export function DashboardScreen() {
                 <NetWorthChart values={trend} />
               </View>
 
-              <View style={styles.monthHeader}>
-                <ThemedText style={styles.monthTitle}>{formatMonth()}⌄</ThemedText>
-                <View style={styles.monthActions}><ThemedText style={styles.actionIcon}>▤</ThemedText><ThemedText style={styles.actionIcon}>⌕</ThemedText></View>
-              </View>
-
-              <View style={styles.dayHeader}><ThemedText style={styles.dayText}>最近</ThemedText></View>
-              {transactions.length > 0 ? transactions.slice(0, 8).map((transaction) => (
-                <TransactionItem key={transaction.id} transaction={transaction} />
-              )) : (
-                <View style={styles.emptyState}>
-                  <ThemedText style={styles.emptyIcon}>🧾</ThemedText>
-                  <ThemedText style={styles.emptyTitle}>还没有账单</ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">点击下方按钮记录第一笔收支</ThemedText>
+              <View style={styles.transactionCard}>
+                <View style={styles.monthHeader}>
+                  <ThemedText style={styles.monthTitle}>{formatMonth()}⌄</ThemedText>
+                  <View style={styles.monthActions}><ThemedText style={styles.actionIcon}>▤</ThemedText><ThemedText style={styles.actionIcon}>⌕</ThemedText></View>
                 </View>
-              )}
+                <View style={styles.transactionDivider} />
+                {groups.length > 0 ? groups.map((group) => (
+                  <View key={group.key} style={styles.dayGroup}>
+                    <ThemedText style={styles.dayText}>{group.label}</ThemedText>
+                    {group.items.map((transaction) => <TransactionItem key={transaction.id} transaction={transaction} />)}
+                  </View>
+                )) : (
+                  <View style={styles.emptyState}>
+                    <ThemedText style={styles.emptyIcon}>🧾</ThemedText>
+                    <ThemedText style={styles.emptyTitle}>还没有账单</ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary">点击下方按钮记录第一笔收支</ThemedText>
+                  </View>
+                )}
+              </View>
             </>
           ) : (
             <View style={styles.calendarPlaceholder}>
@@ -111,41 +125,44 @@ export function DashboardScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1 },
-  content: { padding: Spacing.three, paddingBottom: 120, gap: Spacing.three },
+  content: { paddingHorizontal: Spacing.three, paddingTop: Spacing.two, paddingBottom: 110, gap: 12 },
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   brandBlock: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  brandIcon: { width: 30, height: 30, borderRadius: 15, borderWidth: 1.5, borderColor: '#64748B', alignItems: 'center', justifyContent: 'center' },
-  brandIconText: { fontSize: 16, fontWeight: '800', color: '#334155' },
-  brandName: { fontSize: 23, fontWeight: '500', letterSpacing: 0.5 },
-  menu: { fontSize: 25, color: '#64748B' },
-  segmentedControl: { flexDirection: 'row', backgroundColor: '#E8E8ED', borderRadius: 17, padding: 4 },
-  segment: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 14 },
-  segmentSelected: { backgroundColor: '#FFFFFF' },
-  segmentText: { color: '#7A7A82' },
-  segmentTextSelected: { fontWeight: '700' },
-  summaryCard: { backgroundColor: '#FFFFFF', borderRadius: 22, padding: Spacing.three, gap: Spacing.two, shadowColor: '#85838F', shadowOpacity: 0.06, shadowRadius: 14, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
+  brandIcon: { width: 32, height: 32, borderRadius: 10, backgroundColor: '#F2E4D7', alignItems: 'center', justifyContent: 'center' },
+  brandIconText: { fontSize: 17, fontWeight: '800', color: '#B96B48' },
+  brandName: { fontSize: 19, lineHeight: 23, fontWeight: '700', letterSpacing: -0.2 },
+  menu: { fontSize: 25, color: '#71808C' },
+  segmentedControl: { flexDirection: 'row', backgroundColor: '#ECEDEF', borderRadius: 13, padding: 3 },
+  segment: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 11 },
+  segmentSelected: { backgroundColor: '#FFFFFF', shadowColor: '#4A6670', shadowOpacity: 0.08, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+  segmentText: { color: '#899099', fontWeight: '400' },
+  segmentTextSelected: { fontWeight: '600' },
+  summaryCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 18, gap: 10, borderWidth: 1, borderColor: '#ECEDEF', shadowColor: '#5F6870', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
   summaryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  ledgerName: { fontSize: 16, fontWeight: '600' },
-  changeText: { color: '#D85C50', fontSize: 13, fontWeight: '700' },
-  totalAssets: { fontSize: 34, lineHeight: 42, fontWeight: '900', letterSpacing: 0.5 },
-  divider: { height: 1, backgroundColor: '#ECECF0' },
+  ledgerName: { fontSize: 14, fontWeight: '500', color: '#353A40' },
+  changeText: { color: '#D96C55', fontSize: 12, fontWeight: '600' },
+  totalAssets: { fontSize: 30, lineHeight: 36, fontWeight: '800', letterSpacing: 0.2, color: '#1D2329' },
+  divider: { height: 1, backgroundColor: '#ECEDEF' },
   summaryMetrics: { flexDirection: 'row', alignItems: 'stretch' },
   metric: { flex: 1, gap: 3 },
-  metricAmount: { fontSize: 19, fontWeight: '800' },
-  metricDivider: { width: 1, backgroundColor: '#ECECF0', marginHorizontal: Spacing.three },
-  chartCard: { backgroundColor: '#FFFFFF', borderRadius: 22, padding: Spacing.three, gap: Spacing.three, shadowColor: '#85838F', shadowOpacity: 0.06, shadowRadius: 14, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
+  metricAmount: { fontSize: 16, fontWeight: '700', color: '#252B31' },
+  metricDivider: { width: 1, backgroundColor: '#ECEDEF', marginHorizontal: Spacing.three },
+  chartCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 18, gap: 12, borderWidth: 1, borderColor: '#ECEDEF', shadowColor: '#5F6870', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  cardTitle: { fontSize: 20, fontWeight: '800' },
+  cardTitle: { fontSize: 17, fontWeight: '700' },
   cardActions: { flexDirection: 'row', gap: Spacing.three },
-  actionIcon: { color: '#8D8D95', fontSize: 22 },
-  monthHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.one },
-  monthTitle: { fontSize: 20, fontWeight: '800' },
+  actionIcon: { color: '#8D949A', fontSize: 18 },
+  transactionCard: { backgroundColor: '#FFFFFF', borderRadius: 20, paddingHorizontal: 14, paddingTop: 15, paddingBottom: 5, borderWidth: 1, borderColor: '#ECEDEF' },
+  monthHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  monthTitle: { fontSize: 17, fontWeight: '700' },
   monthActions: { flexDirection: 'row', gap: Spacing.three },
-  dayHeader: { paddingTop: Spacing.one },
-  dayText: { fontSize: 16, color: '#777780', fontWeight: '700' },
+  transactionDivider: { height: 1, backgroundColor: '#ECEDEF', marginTop: 12 },
+  dayHeader: { paddingTop: 11, paddingBottom: 3 },
+  dayText: { fontSize: 13, color: '#818990', fontWeight: '600' },
+  dayGroup: { marginBottom: 8 },
   emptyState: { alignItems: 'center', paddingVertical: Spacing.five, gap: Spacing.one },
   emptyIcon: { fontSize: 42 },
-  emptyTitle: { fontWeight: '800', fontSize: 17 },
+  emptyTitle: { fontWeight: '700', fontSize: 16 },
   calendarPlaceholder: { minHeight: 420, alignItems: 'center', justifyContent: 'center', gap: Spacing.two },
   calendarIcon: { fontSize: 52, color: '#94A3B8' },
 });

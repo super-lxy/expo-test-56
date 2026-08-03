@@ -18,7 +18,7 @@ export function NetWorthChart({
   const min = Math.min(...values, 0);
   const max = Math.max(...values, 1);
   const range = max - min || 1;
-  const chartHeight = 150;
+  const chartHeight = 132;
   const points = values.map((value, index) => ({
     x: values.length === 1 ? 0 : (index / (values.length - 1)) * Math.max(width - 12, 1),
     y: chartHeight - ((value - min) / range) * chartHeight,
@@ -65,10 +65,10 @@ export function NetWorthChart({
 
 const styles = StyleSheet.create({
   container: { gap: Spacing.two },
-  chartArea: { height: 174, position: 'relative', paddingLeft: 62, paddingRight: 4 },
-  gridLine: { position: 'absolute', left: 62, right: 4, height: 1, backgroundColor: '#E5E7EB' },
-  yLabels: { position: 'absolute', left: 0, top: 0, height: 150, justifyContent: 'space-between' },
-  plotArea: { height: 150, position: 'relative', overflow: 'hidden', backgroundColor: '#FFF4EF' },
-  segment: { position: 'absolute', height: 2.5, backgroundColor: '#E76F51', transformOrigin: 'left center' },
-  xLabels: { flexDirection: 'row', justifyContent: 'space-between', paddingLeft: 62 },
+  chartArea: { height: 154, position: 'relative', paddingLeft: 48, paddingRight: 4 },
+  gridLine: { position: 'absolute', left: 48, right: 4, height: 1, backgroundColor: '#ECEDEF' },
+  yLabels: { position: 'absolute', left: 0, top: 0, height: 132, justifyContent: 'space-between' },
+  plotArea: { height: 132, position: 'relative', overflow: 'hidden', backgroundColor: '#FFF4EF' },
+  segment: { position: 'absolute', height: 2, backgroundColor: '#E76F51', transformOrigin: 'left center' },
+  xLabels: { flexDirection: 'row', justifyContent: 'space-between', paddingLeft: 48 },
 });
