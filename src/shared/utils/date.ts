@@ -1,3 +1,11 @@
+export function formatTime(dateString: string) {
+  const date = new Date(dateString);
+  const h = String(date.getHours()).padStart(2, '0');
+  const m = String(date.getMinutes()).padStart(2, '0');
+  return `${h}:${m}`;
+}
+
+
 export function formatDate(dateString: string) {
   const date = new Date(dateString);
   return `${date.getMonth() + 1}月${date.getDate()}日`;

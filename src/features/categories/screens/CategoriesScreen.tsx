@@ -58,9 +58,6 @@ export function CategoriesScreen() {
               <ThemedText style={styles.title}>分类</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">管理一级分类和具体用途</ThemedText>
             </View>
-            <Pressable onPress={() => router.push({ pathname: '/categories/create', params: { type } })} style={styles.addButton}>
-              <ThemedText style={styles.addText}>＋ 大分类</ThemedText>
-            </Pressable>
           </View>
           <View style={styles.switch}>
             <Pressable onPress={() => setType('expense')} style={[styles.switchButton, type === 'expense' && styles.expenseSelected]}><ThemedText>支出分类</ThemedText></Pressable>
@@ -72,6 +69,14 @@ export function CategoriesScreen() {
             onAddChild={(parent) => router.push({ pathname: '/categories/create', params: { type, parentId: parent.id, parentName: parent.name } })}
           />
         </ScrollView>
+        {/* 固定底部：添加分类按钮 */}
+        <SafeAreaView edges={['bottom']} style={styles.bottomBar}>
+          <Pressable
+            onPress={() => router.push({ pathname: '/categories/create', params: { type } })}
+            style={styles.addButton}>
+            <ThemedText style={styles.addText}>添加分类</ThemedText>
+          </Pressable>
+        </SafeAreaView>
       </SafeAreaView>
     </ThemedView>
   );
@@ -80,11 +85,12 @@ export function CategoriesScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1 },
-  content: { padding: Spacing.three, paddingBottom: 80, gap: Spacing.three },
+  content: { padding: Spacing.three, paddingBottom: 100, gap: Spacing.three },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   title: { fontSize: 28, lineHeight: 34, fontWeight: '700' },
-  addButton: { backgroundColor: '#DDF3F0', borderRadius: 13, paddingHorizontal: 12, paddingVertical: 9 },
-  addText: { color: '#167C80', fontWeight: '800' },
+  bottomBar: { paddingHorizontal: Spacing.three, paddingTop: 10, paddingBottom: 6, borderTopWidth: 1, borderTopColor: '#E7EDF0', backgroundColor: '#F5F7FA' },
+  addButton: { backgroundColor: '#17212B', borderRadius: 16, alignItems: 'center', paddingVertical: 16 },
+  addText: { color: '#FFFFFF', fontWeight: '700', fontSize: 16 },
   switch: { flexDirection: 'row', backgroundColor: '#E8EEF2', padding: 4, borderRadius: 15 },
   switchButton: { flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 12 },
   expenseSelected: { backgroundColor: '#FCE5DF' },

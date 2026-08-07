@@ -1,3 +1,3 @@
-import { AccountFormScreen } from '@/features/accounts/screens/AccountFormScreen';
+import { AccountTemplateScreen } from '@/features/accounts/screens/AccountTemplateScreen';
 
-export default AccountFormScreen;
+export default AccountTemplateScreen;

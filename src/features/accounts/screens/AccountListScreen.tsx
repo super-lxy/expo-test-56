@@ -7,28 +7,14 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { formatCurrency } from '@/shared/utils/currency';
 import { useAccounts } from '../hooks/useAccounts';
-import type { AccountType } from '../domain/account.types';
-
-const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
-  cash: '现金',
-  bank: '银行卡',
-  wallet: '电子钱包',
-  'credit-card': '信用卡',
-  other: '其他',
-};
-
-const ACCOUNT_TYPE_ICONS: Record<AccountType, string> = {
-  cash: '💵',
-  bank: '🏦',
-  wallet: '📱',
-  'credit-card': '💳',
-  other: '💼',
-};
+import { findTemplate } from '../domain/account.templates';
 
 export function AccountListScreen() {
   const router = useRouter();
   const { accounts, loading } = useAccounts();
-  const total = accounts.reduce((sum, account) => sum + account.balanceCents, 0);
+  const assets = accounts.filter((a) => a.kind !== 'liability').reduce((sum, a) => sum + a.balanceCents, 0);
+  const liabilities = accounts.filter((a) => a.kind === 'liability').reduce((sum, a) => sum + Math.abs(a.balanceCents), 0);
+  const total = assets - liabilities;
 
   return (
     <ThemedView style={styles.container}>
@@ -47,26 +33,35 @@ export function AccountListScreen() {
           </View>
 
           <View style={styles.totalCard}>
-            <ThemedText style={styles.totalLabel}>总资产</ThemedText>
+            <ThemedText style={styles.totalLabel}>净资产</ThemedText>
             <ThemedText style={styles.totalAmount}>{formatCurrency(total)}</ThemedText>
-            <ThemedText type="small" style={styles.totalHint}>收入、支出和账户转账会自动更新余额</ThemedText>
+            <View style={styles.totalBreakdown}>
+              <ThemedText type="small" style={styles.totalHint}>资产 {formatCurrency(assets)}</ThemedText>
+              <ThemedText type="small" style={styles.totalHint}>负债 {formatCurrency(liabilities)}</ThemedText>
+            </View>
           </View>
 
           <View style={styles.list}>
-            {accounts.map((account) => (
-              <View key={account.id} style={styles.accountCard}>
-                <View style={styles.accountIcon}>
-                  <ThemedText style={styles.accountIconText}>{ACCOUNT_TYPE_ICONS[account.type]}</ThemedText>
-                </View>
-                <View style={styles.accountInfo}>
-                  <ThemedText style={styles.accountName}>{account.name}</ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {ACCOUNT_TYPE_LABELS[account.type]}
+            {accounts.map((account) => {
+              const isLiability = account.kind === 'liability';
+              const typeLabel = findTemplate(account.type)?.label ?? '其他';
+              return (
+                <View key={account.id} style={styles.accountCard}>
+                  <View style={[styles.accountIcon, { backgroundColor: `${account.color}1A` }]}>
+                    <ThemedText style={styles.accountIconText}>{account.icon}</ThemedText>
+                  </View>
+                  <View style={styles.accountInfo}>
+                    <ThemedText style={styles.accountName}>{account.name}</ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {typeLabel} · {isLiability ? '负债' : '资产'}
+                    </ThemedText>
+                  </View>
+                  <ThemedText style={[styles.accountBalance, isLiability && styles.liabilityBalance]}>
+                    {formatCurrency(account.balanceCents)}
                   </ThemedText>
                 </View>
-                <ThemedText style={styles.accountBalance}>{formatCurrency(account.balanceCents)}</ThemedText>
-              </View>
-            ))}
+              );
+            })}
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -88,9 +83,11 @@ const styles = StyleSheet.create({
   totalHint: { color: '#B8E3DE' },
   list: { gap: Spacing.two },
   accountCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, padding: Spacing.three, borderRadius: 18, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E7EDF0' },
-  accountIcon: { width: 46, height: 46, borderRadius: 15, backgroundColor: '#E8F5F3', alignItems: 'center', justifyContent: 'center' },
+  accountIcon: { width: 46, height: 46, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   accountIconText: { fontSize: 20 },
   accountInfo: { flex: 1, gap: 2 },
   accountName: { fontWeight: '600', fontSize: 14 },
   accountBalance: { fontWeight: '700', fontSize: 14 },
+  liabilityBalance: { color: '#C4432F' },
+  totalBreakdown: { flexDirection: 'row', gap: 14 },
 });

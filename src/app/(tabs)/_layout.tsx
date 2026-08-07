@@ -1,5 +1,10 @@
 import AppTabs from '@/components/app-tabs';
+import { TabScrollProvider } from '@/context/tab-scroll';
 
 export default function TabsLayout() {
-  return <AppTabs />;
+  return (
+    <TabScrollProvider>
+      <AppTabs />
+    </TabScrollProvider>
+  );
 }

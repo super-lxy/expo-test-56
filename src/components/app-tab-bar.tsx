@@ -1,6 +1,7 @@
 import type { BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs';
 import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTabScroll } from '@/context/tab-scroll';
 
 const ACTIVE_COLOR = '#167C80';
 const INACTIVE_COLOR = '#83909A';
@@ -37,8 +38,16 @@ export function AppTabBar({ state, descriptors, navigation, insets }: BottomTabB
   const leftRoutes = state.routes.slice(0, 2);
   const rightRoutes = state.routes.slice(2);
 
+  const ctx = useTabScroll();
+
   return (
-    <View pointerEvents="box-none" style={[styles.wrapper, { bottom: Math.max(insets.bottom, 10) }]}>
+    <Animated.View
+      pointerEvents="box-none"
+      style={[
+        styles.wrapper,
+        { bottom: Math.max(insets.bottom, 10) },
+        ctx ? { transform: [{ translateY: ctx.tabTranslateY }] } : undefined,
+      ]}>
       <View style={styles.bar}>
         {leftRoutes.map((route) => (
           <TabItem key={route.key} route={route} index={state.routes.indexOf(route)} state={state} descriptors={descriptors} navigation={navigation} />
@@ -59,7 +68,7 @@ export function AppTabBar({ state, descriptors, navigation, insets }: BottomTabB
           <TabItem key={route.key} route={route} index={state.routes.indexOf(route)} state={state} descriptors={descriptors} navigation={navigation} />
         ))}
       </View>
-    </View>
+    </Animated.View>
   );
 }
 

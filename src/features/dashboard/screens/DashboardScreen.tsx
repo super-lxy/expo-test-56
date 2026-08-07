@@ -1,31 +1,41 @@
-import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useHideTabBarOnScroll } from '@/hooks/use-hide-tab-bar-on-scroll';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useAccounts } from '@/features/accounts/hooks/useAccounts';
 import { NetWorthChart } from '@/features/dashboard/components/NetWorthChart';
-import { buildNetWorthTrend } from '@/features/dashboard/domain/netWorth';
+import { buildNetWorthByPeriod } from '@/features/dashboard/domain/netWorth';
 import { TransactionItem } from '@/features/transactions/components/TransactionItem';
-import { useMonthlySummary, useTransactions } from '@/features/transactions/hooks/useTransactions';
+import { useMonthlySummary, useTransactions, useTotalSummary } from '@/features/transactions/hooks/useTransactions';
 import { formatCurrency } from '@/shared/utils/currency';
 import { dateKey, formatDayGroup, formatMonth } from '@/shared/utils/date';
+
+const PERIODS = [
+  { label: '1月', days: 30 },
+  { label: '3月', days: 90 },
+  { label: '半年', days: 180 },
+  { label: '1年', days: 365 },
+] as const;
 
 type HomeView = 'overview' | 'calendar';
 
 export function DashboardScreen() {
-  const router = useRouter();
   const [view, setView] = useState<HomeView>('overview');
+  const [chartDays, setChartDays] = useState(180);
   const { summary } = useMonthlySummary();
   const { transactions } = useTransactions();
   const { accounts } = useAccounts();
-  const totalAssets = accounts.reduce((sum, account) => sum + account.balanceCents, 0);
+  const totalSummary = useTotalSummary();
+  const totalAssets = accounts.filter((a) => a.kind !== 'liability').reduce((sum, a) => sum + a.balanceCents, 0);
+  const liabilities = accounts.filter((a) => a.kind === 'liability').reduce((sum, a) => sum + Math.abs(a.balanceCents), 0);
   const monthlyChange = summary.incomeCents - summary.expenseCents;
-  const trend = buildNetWorthTrend(accounts, transactions);
-  const groups = transactions.slice(0, 8).reduce<Array<{ key: string; label: string; items: typeof transactions }>>((result, transaction) => {
+  const { values: chartValues, xLabels: chartLabels } = buildNetWorthByPeriod(accounts, transactions, chartDays);
+  const onScroll = useHideTabBarOnScroll();
+  const groups = transactions.slice(0, 8).reduce<{ key: string; label: string; items: typeof transactions }[]>((result, transaction) => {
     const key = dateKey(transaction.occurredAt);
     const existing = result.find((group) => group.key === key);
     if (existing) existing.items.push(transaction);
@@ -36,7 +46,7 @@ export function DashboardScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} onScroll={onScroll} scrollEventThrottle={16}>
           <View style={styles.topBar}>
             <View style={styles.brandBlock}>
               <View style={styles.brandIcon}><ThemedText style={styles.brandIconText}>✦</ThemedText></View>
@@ -60,23 +70,27 @@ export function DashboardScreen() {
           {view === 'overview' ? (
             <>
               <View style={styles.summaryCard}>
+                <ThemedText style={styles.ledgerName}>我的演示账本</ThemedText>
                 <View style={styles.summaryHeader}>
-                  <ThemedText style={styles.ledgerName}>我的演示账本⌄</ThemedText>
-                  <ThemedText style={styles.changeText}>{monthlyChange >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(monthlyChange))}</ThemedText>
+                  <ThemedText style={styles.totalAssets}>{formatCurrency(totalAssets)}</ThemedText>
+                  <ThemedText style={[styles.changeText, { color: monthlyChange >= 0 ? '#2D9D6A' : '#D96C55' }]}>
+                    {monthlyChange >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(monthlyChange))}
+                  </ThemedText>
                 </View>
-                <ThemedText style={styles.totalAssets}>{formatCurrency(totalAssets)}</ThemedText>
                 <View style={styles.divider} />
                 <View style={styles.summaryMetrics}>
                   <View style={styles.metric}>
                     <ThemedText type="small" themeColor="textSecondary">资产</ThemedText>
                     <ThemedText style={styles.metricAmount}>{formatCurrency(totalAssets)}</ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary">账户余额</ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary">月收入 {formatCurrency(summary.incomeCents)}</ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary">总收入 {formatCurrency(totalSummary.totalIncomeCents)}</ThemedText>
                   </View>
                   <View style={styles.metricDivider} />
                   <View style={styles.metric}>
-                    <ThemedText type="small" themeColor="textSecondary">本月结余</ThemedText>
-                    <ThemedText style={styles.metricAmount}>{formatCurrency(monthlyChange)}</ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary">收入 {formatCurrency(summary.incomeCents)}</ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary">负债</ThemedText>
+                    <ThemedText style={styles.metricAmount}>{formatCurrency(liabilities)}</ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary">月支出 {formatCurrency(summary.expenseCents)}</ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary">总支出 {formatCurrency(totalSummary.totalExpenseCents)}</ThemedText>
                   </View>
                 </View>
               </View>
@@ -84,15 +98,20 @@ export function DashboardScreen() {
               <View style={styles.chartCard}>
                 <View style={styles.cardTitleRow}>
                   <ThemedText style={styles.cardTitle}>净资产变化</ThemedText>
-                  <View style={styles.cardActions}><ThemedText style={styles.actionIcon}>▤</ThemedText><ThemedText style={styles.actionIcon}>◴</ThemedText></View>
+                  <View style={styles.periodSelector}>
+                    {PERIODS.map((p) => (
+                      <Pressable key={p.days} onPress={() => setChartDays(p.days)} style={[styles.periodBtn, chartDays === p.days && styles.periodBtnActive]}>
+                        <ThemedText style={[styles.periodText, chartDays === p.days && styles.periodTextActive]}>{p.label}</ThemedText>
+                      </Pressable>
+                    ))}
+                  </View>
                 </View>
-                <NetWorthChart values={trend} />
+                <NetWorthChart values={chartValues} xLabels={chartLabels} />
               </View>
 
               <View style={styles.transactionCard}>
                 <View style={styles.monthHeader}>
-                  <ThemedText style={styles.monthTitle}>{formatMonth()}⌄</ThemedText>
-                  <View style={styles.monthActions}><ThemedText style={styles.actionIcon}>▤</ThemedText><ThemedText style={styles.actionIcon}>⌕</ThemedText></View>
+                  <ThemedText style={styles.monthTitle}>{formatMonth()}</ThemedText>
                 </View>
                 <View style={styles.transactionDivider} />
                 {groups.length > 0 ? groups.map((group) => (
@@ -125,7 +144,7 @@ export function DashboardScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1 },
-  content: { paddingHorizontal: Spacing.three, paddingTop: Spacing.two, paddingBottom: 110, gap: 12 },
+  content: { paddingHorizontal: 10, paddingTop: Spacing.two, paddingBottom: 110, gap: 8 },
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   brandBlock: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   brandIcon: { width: 32, height: 32, borderRadius: 10, backgroundColor: '#F2E4D7', alignItems: 'center', justifyContent: 'center' },
@@ -137,25 +156,27 @@ const styles = StyleSheet.create({
   segmentSelected: { backgroundColor: '#FFFFFF', shadowColor: '#4A6670', shadowOpacity: 0.08, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
   segmentText: { color: '#899099', fontWeight: '400' },
   segmentTextSelected: { fontWeight: '600' },
-  summaryCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 18, gap: 10, borderWidth: 1, borderColor: '#ECEDEF', shadowColor: '#5F6870', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
-  summaryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  summaryCard: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 13, gap: 8, borderWidth: 1, borderColor: '#ECEDEF', shadowColor: '#5F6870', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
+  summaryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
   ledgerName: { fontSize: 14, fontWeight: '500', color: '#353A40' },
   changeText: { color: '#D96C55', fontSize: 12, fontWeight: '600' },
-  totalAssets: { fontSize: 30, lineHeight: 36, fontWeight: '800', letterSpacing: 0.2, color: '#1D2329' },
+  totalAssets: { fontSize: 26, lineHeight: 32, fontWeight: '800', letterSpacing: 0.2, color: '#1D2329' },
   divider: { height: 1, backgroundColor: '#ECEDEF' },
   summaryMetrics: { flexDirection: 'row', alignItems: 'stretch' },
   metric: { flex: 1, gap: 3 },
   metricAmount: { fontSize: 16, fontWeight: '700', color: '#252B31' },
-  metricDivider: { width: 1, backgroundColor: '#ECEDEF', marginHorizontal: Spacing.three },
-  chartCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 18, gap: 12, borderWidth: 1, borderColor: '#ECEDEF', shadowColor: '#5F6870', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
+  metricDivider: { width: 1, backgroundColor: '#ECEDEF', marginHorizontal: 10 },
+  chartCard: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 13, gap: 9, borderWidth: 1, borderColor: '#ECEDEF', shadowColor: '#5F6870', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   cardTitle: { fontSize: 17, fontWeight: '700' },
-  cardActions: { flexDirection: 'row', gap: Spacing.three },
-  actionIcon: { color: '#8D949A', fontSize: 18 },
-  transactionCard: { backgroundColor: '#FFFFFF', borderRadius: 20, paddingHorizontal: 14, paddingTop: 15, paddingBottom: 5, borderWidth: 1, borderColor: '#ECEDEF' },
+  periodSelector: { flexDirection: 'row', gap: 4 },
+  periodBtn: { paddingHorizontal: 7, paddingVertical: 4, borderRadius: 9, backgroundColor: '#F0F2F4' },
+  periodBtnActive: { backgroundColor: '#1C2128' },
+  periodText: { fontSize: 11, fontWeight: '600', color: '#71808C' },
+  periodTextActive: { color: '#FFFFFF' },
+  transactionCard: { backgroundColor: '#FFFFFF', borderRadius: 18, paddingHorizontal: 12, paddingTop: 12, paddingBottom: 5, borderWidth: 1, borderColor: '#ECEDEF' },
   monthHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   monthTitle: { fontSize: 17, fontWeight: '700' },
-  monthActions: { flexDirection: 'row', gap: Spacing.three },
   transactionDivider: { height: 1, backgroundColor: '#ECEDEF', marginTop: 12 },
   dayHeader: { paddingTop: 11, paddingBottom: 3 },
   dayText: { fontSize: 13, color: '#818990', fontWeight: '600' },
