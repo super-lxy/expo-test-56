@@ -24,7 +24,11 @@ export function AccountTemplateScreen() {
           <View style={styles.headerSpacer} />
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.tabBarWrap}
+          contentContainerStyle={styles.tabBar}>
           {TEMPLATE_GROUPS.map((group) => (
             <Pressable
               key={group.key}
@@ -58,7 +62,10 @@ const styles = StyleSheet.create({
   back: { fontSize: 34, lineHeight: 36, fontWeight: '300', color: '#17212B' },
   title: { fontSize: 16, fontWeight: '700' },
   headerSpacer: { width: 22 },
-  tabBar: { flexDirection: 'row', gap: 7, paddingHorizontal: 12, paddingBottom: 10 },
+  // flexGrow: 0 —— 否则横向 ScrollView 会抢占剩余垂直空间，把 tab 拉成竖条
+  tabBarWrap: { flexGrow: 0, flexShrink: 0 },
+  // alignItems: center —— 否则 row 容器默认 stretch，pill 会撑满整个高度
+  tabBar: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 12, paddingBottom: 10 },
   tab: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F0F2F4' },
   tabActive: { backgroundColor: '#1C2128' },
   tabText: { fontSize: 14, fontWeight: '700', color: '#71808C' },
