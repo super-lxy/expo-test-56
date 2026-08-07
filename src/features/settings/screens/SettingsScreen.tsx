@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { FontWeight, Spacing, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export function SettingsScreen() {
@@ -16,7 +16,7 @@ export function SettingsScreen() {
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.content}>
           <ThemedText style={styles.eyebrow} themeColor="textSecondary">偏好与管理</ThemedText>
-          <ThemedText style={styles.title}>设置</ThemedText>
+          <ThemedText type="title" style={styles.title}>设置</ThemedText>
           <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
             <ThemedText style={styles.cardTitle}>本地账本</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">数据保存在当前设备，后续将加入导入导出功能。</ThemedText>
@@ -43,8 +43,8 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1 },
   content: { padding: Spacing.three, gap: Spacing.two },
-  eyebrow: { fontSize: 13, lineHeight: 18, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' },
-  title: { fontSize: 28, lineHeight: 34, fontWeight: '700', marginBottom: Spacing.two, letterSpacing: -0.3 },
+  eyebrow: { ...Type.footnote, fontWeight: FontWeight.semibold, letterSpacing: 0.5, textTransform: 'uppercase' },
+  title: { marginBottom: Spacing.two },
   card: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: Spacing.four, gap: Spacing.one, borderWidth: 1, borderColor: '#E7EDF0', shadowColor: '#31414D', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 1 },
-  cardTitle: { fontSize: 15, lineHeight: 20, fontWeight: '600' },
+  cardTitle: { ...Type.body, fontWeight: FontWeight.semibold },
 });

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { FontWeight, GlyphSize, Type } from '@/constants/theme';
 import type { Category } from '@/features/categories/domain/category.types';
 
 const ICONS: Record<string, string> = {
@@ -142,11 +143,11 @@ const styles = StyleSheet.create({
   iconBox: { width: 61, height: 61, borderRadius: 16, backgroundColor: '#F4F5F4', alignItems: 'center', justifyContent: 'center', position: 'relative' },
   selectedIconBox: { backgroundColor: '#D8E4EE' },
   settingsIconBox: { width: 61, height: 61, borderRadius: 16, backgroundColor: '#EAEDF0', alignItems: 'center', justifyContent: 'center' },
-  icon: { fontSize: 30 },
-  label: { fontSize: 12, lineHeight: 17, fontWeight: '600', color: '#353634' },
+  icon: { fontSize: GlyphSize.xl },
+  label: { ...Type.footnote, fontWeight: FontWeight.medium, color: '#353634' },
   settingsLabel: { color: '#71808C' },
   moreBadge: { position: 'absolute', right: 1, bottom: 1, width: 17, height: 17, borderRadius: 9, backgroundColor: 'rgba(255,255,255,0.93)', borderWidth: 1, borderColor: 'rgba(0,0,0,0.07)', alignItems: 'center', justifyContent: 'center', elevation: 1 },
-  moreText: { color: '#8C96A0', fontSize: 11, lineHeight: 12, fontWeight: '700' },
+  moreText: { color: '#8C96A0', fontSize: 11, lineHeight: 12, fontWeight: FontWeight.semibold },
   modalRoot: { flex: 1, justifyContent: 'flex-end' },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(25, 28, 27, 0.38)' },
   sheet: { maxHeight: '70%', paddingTop: 9, paddingBottom: 26, borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: '#FFFFFF' },
@@ -154,14 +155,14 @@ const styles = StyleSheet.create({
   sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 22, paddingBottom: 13, borderBottomWidth: 1, borderBottomColor: '#EEF0EF' },
   sheetTitleGroup: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   sheetIconBox: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
-  sheetIcon: { fontSize: 25 },
-  sheetTitle: { fontSize: 18, lineHeight: 23, fontWeight: '700', color: '#242824' },
+  sheetIcon: { fontSize: GlyphSize.lg },
+  sheetTitle: { ...Type.headline, fontWeight: FontWeight.semibold, color: '#242824' },
   closeButton: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0F1F1' },
-  closeText: { fontSize: 28, lineHeight: 30, fontWeight: '300', color: '#5F6561' },
+  closeText: { fontSize: 24, lineHeight: 26, fontWeight: FontWeight.regular, color: '#5F6561' },
   childList: { paddingHorizontal: 22 },
   childRow: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: 13, borderBottomWidth: 1, borderBottomColor: '#F0F1F1' },
   childIconBox: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  childIcon: { fontSize: 22 },
-  childLabel: { flex: 1, fontSize: 16, lineHeight: 22, fontWeight: '600', color: '#2D332F' },
-  checkmark: { fontSize: 20, fontWeight: '700', color: '#3A6A8A' },
+  childIcon: { fontSize: GlyphSize.md },
+  childLabel: { flex: 1, ...Type.body, fontWeight: FontWeight.medium, color: '#2D332F' },
+  checkmark: { fontSize: GlyphSize.md, fontWeight: FontWeight.semibold, color: '#3A6A8A' },
 });

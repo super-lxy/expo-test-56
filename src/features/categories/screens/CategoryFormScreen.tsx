@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { FontWeight, Spacing, Type } from '@/constants/theme';
 import { useCategoryRepository } from '@/features/transactions/hooks/useTransactions';
 import { createCategory } from '../application/createCategory';
 import type { CategoryType } from '../domain/category.types';
@@ -55,12 +55,12 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.three, paddingVertical: Spacing.two },
-  title: { fontSize: 16, fontWeight: '600' },
-  save: { color: '#167C80', fontWeight: '600', fontSize: 14 },
+  title: { ...Type.headline, fontWeight: FontWeight.semibold },
+  save: { ...Type.body, color: '#167C80', fontWeight: FontWeight.semibold },
   content: { padding: Spacing.three, gap: Spacing.two },
-  label: { fontWeight: '600', fontSize: 14, marginTop: Spacing.two },
-  input: { borderWidth: 1, borderColor: '#D9E0E4', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: '#17212B' },
+  label: { ...Type.subhead, fontWeight: FontWeight.semibold, marginTop: Spacing.two },
+  input: { borderWidth: 1, borderColor: '#D9E0E4', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, ...Type.body, color: '#17212B' },
   typeBadge: { alignSelf: 'flex-start', backgroundColor: '#DBEAFE', borderRadius: 13, paddingHorizontal: 14, paddingVertical: 10 },
   submitButton: { backgroundColor: '#2563EB', borderRadius: 16, alignItems: 'center', paddingVertical: 15, marginTop: Spacing.four },
-  submitText: { color: '#FFFFFF', fontWeight: '600', fontSize: 14 },
+  submitText: { ...Type.body, color: '#FFFFFF', fontWeight: FontWeight.semibold },
 });

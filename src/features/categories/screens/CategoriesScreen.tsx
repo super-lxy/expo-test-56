@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { FontWeight, Spacing, Type } from '@/constants/theme';
 import { useCategoryRepository } from '@/features/transactions/hooks/useTransactions';
 import type { Category, CategoryType } from '../domain/category.types';
 
@@ -55,7 +55,7 @@ export function CategoriesScreen() {
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.header}>
             <View>
-              <ThemedText style={styles.title}>分类</ThemedText>
+              <ThemedText type="title">分类</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">管理一级分类和具体用途</ThemedText>
             </View>
           </View>
@@ -87,10 +87,9 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   content: { padding: Spacing.three, paddingBottom: 100, gap: Spacing.three },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  title: { fontSize: 28, lineHeight: 34, fontWeight: '700' },
   bottomBar: { paddingHorizontal: Spacing.three, paddingTop: 10, paddingBottom: 6, borderTopWidth: 1, borderTopColor: '#E7EDF0', backgroundColor: '#F5F7FA' },
   addButton: { backgroundColor: '#17212B', borderRadius: 16, alignItems: 'center', paddingVertical: 16 },
-  addText: { color: '#FFFFFF', fontWeight: '700', fontSize: 16 },
+  addText: { ...Type.body, color: '#FFFFFF', fontWeight: FontWeight.semibold },
   switch: { flexDirection: 'row', backgroundColor: '#E8EEF2', padding: 4, borderRadius: 15 },
   switchButton: { flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 12 },
   expenseSelected: { backgroundColor: '#FCE5DF' },
@@ -98,7 +97,7 @@ const styles = StyleSheet.create({
   tree: { gap: Spacing.two },
   parentRow: { borderRadius: 18, backgroundColor: '#FFFFFF', padding: Spacing.three, gap: Spacing.two, borderWidth: 1, borderColor: '#E7EDF0' },
   parentHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  parentName: { fontSize: 15, lineHeight: 20, fontWeight: '600' },
-  addChild: { color: '#167C80', fontWeight: '700' },
+  parentName: { ...Type.body, fontWeight: FontWeight.semibold },
+  addChild: { color: '#167C80', fontWeight: FontWeight.semibold },
   children: { paddingLeft: Spacing.two, gap: Spacing.two },
 });

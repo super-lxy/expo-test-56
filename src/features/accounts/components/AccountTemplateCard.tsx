@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { FontWeight, GlyphSize, Type } from '@/constants/theme';
 import type { AccountTemplate } from '../domain/account.templates';
 
 export function AccountTemplateCard({
@@ -37,15 +38,15 @@ const styles = StyleSheet.create({
   card: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 16, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#ECEDEF' },
   pressed: { opacity: 0.6 },
   icon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  iconText: { fontSize: 22 },
+  iconText: { fontSize: GlyphSize.md },
   info: { flex: 1, gap: 3 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  label: { fontSize: 15, fontWeight: '700' },
+  label: { ...Type.body, fontWeight: FontWeight.semibold },
   badge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
   badgeAsset: { backgroundColor: '#E3F3EA' },
   badgeLiability: { backgroundColor: '#FCE8E4' },
-  badgeText: { fontSize: 10, fontWeight: '700' },
+  badgeText: { ...Type.caption, fontWeight: FontWeight.semibold },
   badgeTextAsset: { color: '#1F8A5F' },
   badgeTextLiability: { color: '#C4432F' },
-  chevron: { fontSize: 22, color: '#C3CBD2', fontWeight: '600' },
+  chevron: { fontSize: GlyphSize.md, color: '#C3CBD2', fontWeight: FontWeight.regular },
 });

@@ -6,9 +6,7 @@ import { Spacing } from '@/constants/theme';
 export function SectionTitle({ title, action }: { title: string; action?: string }) {
   return (
     <View style={styles.container}>
-      <ThemedText type="subtitle" style={styles.title}>
-        {title}
-      </ThemedText>
+      <ThemedText type="subtitle">{title}</ThemedText>
       {action ? (
         <ThemedText type="small" themeColor="textSecondary">
           {action}
@@ -24,9 +22,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: Spacing.three,
-  },
-  title: {
-    fontSize: 21,
-    lineHeight: 28,
   },
 });

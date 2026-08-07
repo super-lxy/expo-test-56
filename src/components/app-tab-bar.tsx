@@ -1,6 +1,7 @@
 import type { BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs';
 import { useRouter } from 'expo-router';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FontWeight, GlyphSize, Type } from '@/constants/theme';
 import { useTabScroll } from '@/context/tab-scroll';
 
 const ACTIVE_COLOR = '#167C80';
@@ -103,8 +104,8 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   tabLabel: {
-    fontSize: 11,
-    fontWeight: '600',
+    ...Type.caption,
+    fontWeight: FontWeight.medium,
   },
   addSlot: {
     flex: 1.12,
@@ -134,14 +135,13 @@ const styles = StyleSheet.create({
   },
   addButtonText: {
     color: '#FFFFFF',
-    fontSize: 25,
-    lineHeight: 28,
-    fontWeight: '300',
+    fontSize: GlyphSize.lg,
+    lineHeight: 26,
+    fontWeight: FontWeight.regular,
   },
   addLabel: {
+    ...Type.caption,
     color: ACTIVE_COLOR,
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '700',
+    fontWeight: FontWeight.semibold,
   },
 });

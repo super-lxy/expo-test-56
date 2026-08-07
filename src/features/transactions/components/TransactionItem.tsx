@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { FontWeight, GlyphSize, Type } from '@/constants/theme';
 import type { Transaction } from '../domain/transaction.types';
 import { formatCurrency } from '@/shared/utils/currency';
 import { formatTime } from '@/shared/utils/date';
@@ -37,10 +38,10 @@ const styles = StyleSheet.create({
   container: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 10, borderBottomWidth: 1, borderBottomColor: '#F0F1F2' },
   pressed: { opacity: 0.65 },
   icon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  iconText: { fontSize: 20 },
+  iconText: { fontSize: GlyphSize.md },
   details: { flex: 1, gap: 3 },
-  category: { fontWeight: '600', fontSize: 14 },
+  category: { ...Type.body, fontWeight: FontWeight.semibold },
   amountCol: { alignItems: 'flex-end', gap: 3 },
-  amount: { fontWeight: '700', fontSize: 15 },
-  time: { fontSize: 11, color: '#A0AAB4' },
+  amount: { ...Type.body, fontWeight: FontWeight.semibold },
+  time: { ...Type.caption, color: '#A0AAB4' },
 });

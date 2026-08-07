@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { FontWeight, Type } from '@/constants/theme';
 import { AccountTemplateCard } from '../components/AccountTemplateCard';
 import { TEMPLATE_GROUPS } from '../domain/account.templates';
 
@@ -59,8 +60,8 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1 },
   header: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12 },
-  back: { fontSize: 34, lineHeight: 36, fontWeight: '300', color: '#17212B' },
-  title: { fontSize: 16, fontWeight: '700' },
+  back: { fontSize: 32, lineHeight: 34, fontWeight: FontWeight.regular, color: '#17212B' },
+  title: { ...Type.headline, fontWeight: FontWeight.semibold },
   headerSpacer: { width: 22 },
   // flexGrow: 0 —— 否则横向 ScrollView 会抢占剩余垂直空间，把 tab 拉成竖条
   tabBarWrap: { flexGrow: 0, flexShrink: 0 },
@@ -68,7 +69,7 @@ const styles = StyleSheet.create({
   tabBar: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 12, paddingBottom: 10 },
   tab: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F0F2F4' },
   tabActive: { backgroundColor: '#1C2128' },
-  tabText: { fontSize: 14, fontWeight: '700', color: '#71808C' },
+  tabText: { ...Type.subhead, fontWeight: FontWeight.semibold, color: '#71808C' },
   tabTextActive: { color: '#FFFFFF' },
   list: { paddingHorizontal: 12, paddingBottom: 40, gap: 8 },
 });

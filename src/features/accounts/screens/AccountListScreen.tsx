@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { FontWeight, GlyphSize, Spacing, Type } from '@/constants/theme';
 import { formatCurrency } from '@/shared/utils/currency';
 import { useAccounts } from '../hooks/useAccounts';
 import { findTemplate } from '../domain/account.templates';
@@ -22,7 +22,7 @@ export function AccountListScreen() {
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.header}>
             <View>
-              <ThemedText style={styles.title}>账户</ThemedText>
+              <ThemedText type="title">账户</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
                 {loading ? '加载中…' : `${accounts.length} 个账户`}
               </ThemedText>
@@ -74,20 +74,19 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   content: { padding: Spacing.three, paddingBottom: 80, gap: Spacing.three },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  title: { fontSize: 28, lineHeight: 34, fontWeight: '700' },
   addButton: { backgroundColor: '#DDF3F0', borderRadius: 13, paddingHorizontal: 13, paddingVertical: 9 },
-  addText: { color: '#167C80', fontWeight: '800' },
+  addText: { ...Type.subhead, color: '#167C80', fontWeight: FontWeight.semibold },
   totalCard: { backgroundColor: '#167C80', borderRadius: 24, padding: Spacing.four, gap: Spacing.two, shadowColor: '#167C80', shadowOpacity: 0.2, shadowRadius: 14, shadowOffset: { width: 0, height: 7 }, elevation: 4 },
-  totalLabel: { color: '#DDF3F0', fontWeight: '700' },
-  totalAmount: { color: '#FFFFFF', fontSize: 30, lineHeight: 36, fontWeight: '800' },
+  totalLabel: { ...Type.subhead, color: '#DDF3F0', fontWeight: FontWeight.medium },
+  totalAmount: { ...Type.hero, color: '#FFFFFF', fontWeight: FontWeight.bold, letterSpacing: -0.4 },
   totalHint: { color: '#B8E3DE' },
   list: { gap: Spacing.two },
   accountCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, padding: Spacing.three, borderRadius: 18, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E7EDF0' },
   accountIcon: { width: 46, height: 46, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  accountIconText: { fontSize: 20 },
+  accountIconText: { fontSize: GlyphSize.md },
   accountInfo: { flex: 1, gap: 2 },
-  accountName: { fontWeight: '600', fontSize: 14 },
-  accountBalance: { fontWeight: '700', fontSize: 14 },
+  accountName: { ...Type.body, fontWeight: FontWeight.semibold },
+  accountBalance: { ...Type.body, fontWeight: FontWeight.semibold },
   liabilityBalance: { color: '#C4432F' },
   totalBreakdown: { flexDirection: 'row', gap: 14 },
 });
