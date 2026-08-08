@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { FontWeight, GlyphSize, Spacing, Type } from '@/constants/theme';
+import { FontWeight, Glyph, Numeric, Spacing, Type } from '@/constants/theme';
 import { formatCurrency } from '@/shared/utils/currency';
 import { useAccounts } from '../hooks/useAccounts';
 import { findTemplate } from '../domain/account.templates';
@@ -72,21 +72,21 @@ export function AccountListScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1 },
-  content: { padding: Spacing.three, paddingBottom: 80, gap: Spacing.three },
+  content: { padding: Spacing.three, paddingBottom: 80, gap: Spacing.two },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   addButton: { backgroundColor: '#DDF3F0', borderRadius: 13, paddingHorizontal: 13, paddingVertical: 9 },
   addText: { ...Type.subhead, color: '#167C80', fontWeight: FontWeight.semibold },
   totalCard: { backgroundColor: '#167C80', borderRadius: 24, padding: Spacing.four, gap: Spacing.two, shadowColor: '#167C80', shadowOpacity: 0.2, shadowRadius: 14, shadowOffset: { width: 0, height: 7 }, elevation: 4 },
   totalLabel: { ...Type.subhead, color: '#DDF3F0', fontWeight: FontWeight.medium },
-  totalAmount: { ...Type.hero, color: '#FFFFFF', fontWeight: FontWeight.bold, letterSpacing: -0.4 },
-  totalHint: { color: '#B8E3DE' },
+  totalAmount: { ...Type.hero, ...Numeric, color: '#FFFFFF', fontWeight: FontWeight.bold },
+  totalHint: { ...Numeric, color: '#B8E3DE' },
   list: { gap: Spacing.two },
-  accountCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, padding: Spacing.three, borderRadius: 18, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E7EDF0' },
+  accountCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, padding: 12, borderRadius: 18, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E7EDF0' },
   accountIcon: { width: 46, height: 46, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  accountIconText: { fontSize: GlyphSize.md },
+  accountIconText: { ...Glyph.md },
   accountInfo: { flex: 1, gap: 2 },
   accountName: { ...Type.body, fontWeight: FontWeight.semibold },
-  accountBalance: { ...Type.body, fontWeight: FontWeight.semibold },
+  accountBalance: { ...Type.body, ...Numeric, fontWeight: FontWeight.semibold },
   liabilityBalance: { color: '#C4432F' },
   totalBreakdown: { flexDirection: 'row', gap: 14 },
 });

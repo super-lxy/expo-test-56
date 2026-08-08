@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { FontWeight, GlyphSize, Type } from '@/constants/theme';
+import { FontWeight, Glyph, Type } from '@/constants/theme';
 import { parseAmountToCents } from '@/shared/utils/currency';
 import { createAccount } from '../application/createAccount';
 import { findTemplate } from '../domain/account.templates';
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
   content: { padding: 14, paddingBottom: 40, gap: 8 },
   preview: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13, borderRadius: 16, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#ECEDEF', marginBottom: 6 },
   previewIcon: { width: 48, height: 48, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  previewIconText: { fontSize: GlyphSize.lg },
+  previewIconText: { ...Glyph.lg },
   previewInfo: { flex: 1, gap: 3 },
   previewLabel: { ...Type.headline, fontWeight: FontWeight.semibold },
   badge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7 },

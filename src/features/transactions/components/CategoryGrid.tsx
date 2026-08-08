@@ -1,25 +1,28 @@
-import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Animated, Dimensions, Easing, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { FontWeight, GlyphSize, Type } from '@/constants/theme';
+import { FontWeight, Glyph, Type } from '@/constants/theme';
 import type { Category } from '@/features/categories/domain/category.types';
 
-const ICONS: Record<string, string> = {
-  food: '🍽️',
-  shopping: '🛍️',
-  transport: '🚕',
-  housing: '🏠',
-  daily: '📦',
-  relationships: '💗',
-  entertainment: '🕸️',
-  travel: '🎟️',
-  medical: '🏥',
-  membership: '♛',
-};
+/** 弹窗一屏最多显示的子分类行数，超出滚动 */
+const MAX_VISIBLE_ROWS = 6;
+const CHILD_ROW_HEIGHT = 56;
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 function rowsOf<T>(items: T[], size: number) {
   return Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, index * size + size));
+}
+
+/**
+ * 建库时每个一级分类都会生成一个同名的兜底子分类（`${rootId}-default`），
+ * 它代表「就是这个大类，没有细分」。
+ * 只用 ID 匹配而非名称匹配：若用户自建了与父级同名的子分类，
+ * 名称匹配会误把它当作兜底项，导致角标消失、排序前移、标签不加父级前缀。
+ */
+function isDefaultChild(child: Category, root: Category) {
+  return child.id === `${root.id}-default`;
 }
 
 export function CategoryGrid({
@@ -27,27 +30,91 @@ export function CategoryGrid({
   selectedCategoryId,
   onCategoryChange,
   onSettingsPress,
+  onAddChildPress,
 }: {
   categories: Category[];
   selectedCategoryId: string;
   onCategoryChange: (id: string) => void;
   onSettingsPress?: () => void;
+  onAddChildPress?: (parent: Category) => void;
 }) {
   const [expandedRootId, setExpandedRootId] = useState<string | null>(null);
+  const insets = useSafeAreaInsets();
+  // 自己驱动动画而非用 Modal 的 animationType="slide"：
+  // 后者会把遮罩和卡片一起位移，阴影跟着从屏幕外滑进来。
+  // 这里遮罩淡入、卡片单独上滑。
+  //
+  // translateY 直接用像素值而不是 interpolate 到实测高度：
+  // onLayout 在动画启动之后才回调，若把测量结果塞进 outputRange，
+  // 输出范围会中途变化，卡片被瞬间拉到半空，看起来像是直接出现。
+  const [fade] = useState(() => new Animated.Value(0));
+  const [translateY] = useState(() => new Animated.Value(SCREEN_HEIGHT));
+  const [sheetHeight, setSheetHeight] = useState(0);
+  // Modal 的挂载与 expandedRootId 解耦：关闭时先播收起动画，播完再卸载。
+  // 直接用 visible={Boolean(expandedRootId)} 会在状态清空的瞬间卸载，收起动画根本不播。
+  const [mounted, setMounted] = useState(false);
+  // 收起动画期间 expandedRootId 已清空，靠这个值维持卡片内容不闪空
+  const [lastRootId, setLastRootId] = useState<string | null>(null);
+  const bottomGap = Math.max(insets.bottom, 12);
+
+  useEffect(() => {
+    if (expandedRootId) {
+      // 高度还没测到就先不动，等 onLayout 落地后本 effect 会再跑一次
+      if (!sheetHeight) return;
+      translateY.setValue(sheetHeight + bottomGap);
+      Animated.parallel([
+        Animated.timing(fade, { toValue: 1, duration: 260, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+        Animated.timing(translateY, { toValue: 0, duration: 340, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      ]).start();
+      return;
+    }
+    if (!mounted) return;
+    Animated.parallel([
+      Animated.timing(fade, { toValue: 0, duration: 240, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+      Animated.timing(translateY, {
+        toValue: (sheetHeight || SCREEN_HEIGHT) + bottomGap,
+        duration: 280,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start(({ finished }) => {
+      if (finished) setMounted(false);
+    });
+  }, [expandedRootId, sheetHeight, bottomGap, mounted, fade, translateY]);
   const roots = categories.filter((category) => category.parentId === null);
   // null 作为「设置」格的占位哨兵
   const displayItems: (Category | null)[] = onSettingsPress ? [...roots, null] : roots;
   const selected = categories.find((category) => category.id === selectedCategoryId);
   const selectedRootId = selected?.parentId ?? selected?.id;
-  const expandedRoot = roots.find((category) => category.id === expandedRootId);
-  const children = expandedRootId ? categories.filter((category) => category.parentId === expandedRootId) : [];
+  // 收起动画期间 expandedRootId 已清空，用上一次的值维持卡片内容不闪空
+  const expandedRoot = roots.find((category) => category.id === (expandedRootId ?? lastRootId));
+  // 兜底项排到首位：它的 sort_order 是 root.sortOrder * 100，
+  // 在有显式子分类的大类（如交通 sort 30-34 vs 兜底 200）里会落到最后。
+  const children = expandedRoot
+    ? categories
+        .filter((category) => category.parentId === expandedRoot.id)
+        .sort((a, b) => Number(isDefaultChild(b, expandedRoot)) - Number(isDefaultChild(a, expandedRoot)))
+    : [];
+
+  // ⋯ 角标只在有真实细分时显示。兜底项不算 —— 每个一级分类建库时都会挂一个
+  // 同名 -default 项，把它算进来会让每一格都挂角标，角标就失去了指示意义。
+  function realChildrenOf(root: Category) {
+    return categories.filter((item) => item.parentId === root.id && !isDefaultChild(item, root));
+  }
 
   function handleRootPress(category: Category) {
-    const childCategories = categories.filter((item) => item.parentId === category.id);
-    if (childCategories.length === 0) {
-      onCategoryChange(category.id);
-      return;
+    // 已经选中本大类下的某个子分类时不要覆盖它 ——
+    // 否则点开「交通」会把之前选的「交通-飞机」重置成兜底项，弹窗里的 ✓ 跑到首行。
+    const alreadyInThisRoot = selected
+      && (selected.id === category.id || selected.parentId === category.id);
+    if (!alreadyInThisRoot) {
+      const defaultChild = categories.find((item) => item.parentId === category.id && isDefaultChild(item, category));
+      // 先落选中再弹窗：点了立刻有反馈，关掉弹窗也不会退回上一个分类。
+      onCategoryChange(defaultChild?.id ?? category.id);
     }
+    // 弹窗对每个一级分类都开 —— 里面至少有兜底项和「添加子分类」入口。
+    setLastRootId(category.id);
+    setMounted(true);
     setExpandedRootId(category.id);
   }
 
@@ -60,25 +127,32 @@ export function CategoryGrid({
             if (item === null) {
               return (
                 <Pressable key="__settings__" onPress={onSettingsPress} style={styles.cell}>
-                  <View style={styles.settingsIconBox}>
-                    <ThemedText style={styles.icon}>{'⚙️'}</ThemedText>
+                  <View style={styles.cellInner}>
+                    <View style={[styles.iconBox, styles.settingsIconBox]}>
+                      <ThemedText style={styles.icon}>{'⚙️'}</ThemedText>
+                    </View>
+                    <ThemedText style={[styles.label, styles.settingsLabel]} numberOfLines={1}>分类</ThemedText>
                   </View>
-                  <ThemedText style={[styles.label, styles.settingsLabel]} numberOfLines={1}>分类</ThemedText>
                 </Pressable>
               );
             }
             const isSelected = item.id === selectedCategoryId || item.id === selectedRootId;
-            const icon = ICONS[item.id] ?? item.icon;
+            // 选中细分时格子显示「父-子」，选中兜底项（或大类本身）时只显示大类名
+            const label = isSelected && selected && !isDefaultChild(selected, item) && selected.id !== item.id
+              ? `${item.name}-${selected.name}`
+              : item.name;
             return (
               <Pressable
                 key={item.id}
                 onPress={() => handleRootPress(item)}
                 style={styles.cell}>
-                <View style={[styles.iconBox, isSelected && styles.selectedIconBox]}>
-                  <ThemedText style={styles.icon}>{icon}</ThemedText>
-                  {categories.some((c) => c.parentId === item.id) ? <View style={styles.moreBadge}><ThemedText style={styles.moreText}>›</ThemedText></View> : null}
+                <View style={styles.cellInner}>
+                  <View style={[styles.iconBox, isSelected && styles.iconBoxSelected]}>
+                    <ThemedText style={styles.icon}>{item.icon}</ThemedText>
+                    {realChildrenOf(item).length > 0 ? <View style={styles.moreBadge}><ThemedText style={styles.moreText}>⋯</ThemedText></View> : null}
+                  </View>
+                  <ThemedText style={[styles.label, isSelected && styles.labelSelected]} numberOfLines={1}>{label}</ThemedText>
                 </View>
-                <ThemedText style={styles.label} numberOfLines={1}>{item.name}</ThemedText>
               </Pressable>
             );
           })}
@@ -87,35 +161,62 @@ export function CategoryGrid({
       ))}
 
       <Modal
-        visible={Boolean(expandedRoot)}
+        visible={mounted}
         transparent
-        animationType="slide"
+        animationType="none"
         onRequestClose={() => setExpandedRootId(null)}>
         <View style={styles.modalRoot}>
-          <Pressable style={styles.backdrop} onPress={() => setExpandedRootId(null)} />
+          <Animated.View style={[styles.backdrop, { opacity: fade }]}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => setExpandedRootId(null)} />
+          </Animated.View>
           {expandedRoot ? (
-            <View style={styles.sheet}>
-              <View style={styles.sheetHandle} />
+            <Animated.View
+              onLayout={(e) => {
+                const next = e.nativeEvent.layout.height;
+                if (next > 0 && next !== sheetHeight) setSheetHeight(next);
+              }}
+              style={[
+                styles.sheet,
+                // 底部留白挂在卡片上而非外层容器：卡片下滑时留白一起移出视口
+                { marginBottom: bottomGap },
+                { transform: [{ translateY }] },
+              ]}>
+              {/* 头部：左侧关闭，右侧「添加」入口 —— 添加不再占用列表行 */}
               <View style={styles.sheetHeader}>
-                <View style={styles.sheetTitleGroup}>
-                  <View style={[styles.sheetIconBox, { backgroundColor: `${expandedRoot.color}22` }]}>
-                    <ThemedText style={styles.sheetIcon}>{ICONS[expandedRoot.id] ?? expandedRoot.icon}</ThemedText>
-                  </View>
-                  <View>
-                    <ThemedText style={styles.sheetTitle}>{expandedRoot.name}</ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary">选择具体分类</ThemedText>
-                  </View>
-                </View>
-                <Pressable onPress={() => setExpandedRootId(null)} hitSlop={10} style={styles.closeButton}>
-                  <ThemedText style={styles.closeText}>×</ThemedText>
+                <Pressable onPress={() => setExpandedRootId(null)} hitSlop={10} style={styles.sheetCloseBtn}>
+                  <ThemedText style={styles.sheetCloseText}>×</ThemedText>
                 </Pressable>
+                <ThemedText style={styles.sheetTitle}>{expandedRoot.name}</ThemedText>
+                {onAddChildPress ? (
+                  <Pressable
+                    onPress={() => {
+                      const parent = expandedRoot;
+                      setExpandedRootId(null);
+                      onAddChildPress(parent);
+                    }}
+                    hitSlop={10}
+                    style={styles.sheetAddBtn}>
+                    <ThemedText style={styles.sheetAddText}>添加</ThemedText>
+                  </Pressable>
+                ) : (
+                  <View style={styles.sheetCloseBtn} />
+                )}
               </View>
-
-              <View style={styles.childList}>
-                {children.map((category) => (
+              {/* 超过 MAX_VISIBLE_ROWS 行时限高滚动。
+                  bounces + 顶底的圆弧留白：拖到尽头会露出弧形，提示已到边界。 */}
+              <ScrollView
+                style={[
+                  styles.childScroll,
+                  children.length > MAX_VISIBLE_ROWS && { height: MAX_VISIBLE_ROWS * CHILD_ROW_HEIGHT },
+                ]}
+                contentContainerStyle={styles.childList}
+                showsVerticalScrollIndicator={false}
+                bounces
+                alwaysBounceVertical={false}>
+                {children.map((category, index) => (
                   <Pressable
                     key={category.id}
-                    style={styles.childRow}
+                    style={[styles.childRow, index === children.length - 1 && styles.childRowLast]}
                     onPress={() => {
                       onCategoryChange(category.id);
                       setExpandedRootId(null);
@@ -123,12 +224,14 @@ export function CategoryGrid({
                     <View style={[styles.childIconBox, { backgroundColor: `${category.color}22` }]}>
                       <ThemedText style={styles.childIcon}>{category.icon}</ThemedText>
                     </View>
-                    <ThemedText style={styles.childLabel}>{category.name}</ThemedText>
+                    <ThemedText style={styles.childLabel} numberOfLines={1}>
+                      {isDefaultChild(category, expandedRoot) ? category.name : `${expandedRoot.name}-${category.name}`}
+                    </ThemedText>
                     {category.id === selectedCategoryId ? <ThemedText style={styles.checkmark}>✓</ThemedText> : null}
                   </Pressable>
                 ))}
-              </View>
-            </View>
+              </ScrollView>
+            </Animated.View>
           ) : null}
         </View>
       </Modal>
@@ -137,32 +240,50 @@ export function CategoryGrid({
 }
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: 10, paddingTop: 12, paddingBottom: 5, gap: 12 },
-  row: { flexDirection: 'row', gap: 6 },
-  cell: { flex: 1, alignItems: 'center', gap: 5 },
-  iconBox: { width: 61, height: 61, borderRadius: 16, backgroundColor: '#F4F5F4', alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  selectedIconBox: { backgroundColor: '#D8E4EE' },
-  settingsIconBox: { width: 61, height: 61, borderRadius: 16, backgroundColor: '#EAEDF0', alignItems: 'center', justifyContent: 'center' },
-  icon: { fontSize: GlyphSize.xl },
-  label: { ...Type.footnote, fontWeight: FontWeight.medium, color: '#353634' },
+  container: { paddingHorizontal: 8, paddingTop: 10, paddingBottom: 5, gap: 4 },
+  row: { flexDirection: 'row', gap: 2 },
+  cell: { flex: 1 },
+  // 整格作为选中高亮的载体：圆角贴合内容，不需要固定尺寸
+  cellInner: { alignItems: 'center', gap: 5, paddingVertical: 6 },
+  // 圆角方块（squircle）而非圆形：emoji 本身是方形字形，圆底会在四角留下空隙
+  iconBox: { width: 48, height: 48, borderRadius: 15, backgroundColor: '#F4F5F4', alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  iconBoxSelected: { backgroundColor: '#D8E4EE' },
+  settingsIconBox: { backgroundColor: '#EAEDF0' },
+  icon: { ...Glyph.lg },
+  label: { ...Type.footnote, fontWeight: FontWeight.regular, color: '#4A4C4A' },
+  labelSelected: { color: '#2B4B63', fontWeight: FontWeight.medium },
   settingsLabel: { color: '#71808C' },
-  moreBadge: { position: 'absolute', right: 1, bottom: 1, width: 17, height: 17, borderRadius: 9, backgroundColor: 'rgba(255,255,255,0.93)', borderWidth: 1, borderColor: 'rgba(0,0,0,0.07)', alignItems: 'center', justifyContent: 'center', elevation: 1 },
-  moreText: { color: '#8C96A0', fontSize: 11, lineHeight: 12, fontWeight: FontWeight.semibold },
-  modalRoot: { flex: 1, justifyContent: 'flex-end' },
+  moreBadge: { position: 'absolute', right: -1, bottom: -1, width: 15, height: 15, borderRadius: 8, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  moreText: { color: '#9AA2A9', fontSize: 10, lineHeight: 11, fontWeight: FontWeight.semibold },
+  // 靠下浮动的完整卡片：四角全圆、四周留缝隙，不贴任何屏幕边缘
+  modalRoot: { flex: 1, justifyContent: 'flex-end', paddingHorizontal: 12 },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(25, 28, 27, 0.38)' },
-  sheet: { maxHeight: '70%', paddingTop: 9, paddingBottom: 26, borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: '#FFFFFF' },
-  sheetHandle: { alignSelf: 'center', width: 38, height: 4, marginBottom: 11, borderRadius: 2, backgroundColor: '#D7D8D9' },
-  sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 22, paddingBottom: 13, borderBottomWidth: 1, borderBottomColor: '#EEF0EF' },
-  sheetTitleGroup: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  sheetIconBox: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
-  sheetIcon: { fontSize: GlyphSize.lg },
-  sheetTitle: { ...Type.headline, fontWeight: FontWeight.semibold, color: '#242824' },
-  closeButton: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0F1F1' },
-  closeText: { fontSize: 24, lineHeight: 26, fontWeight: FontWeight.regular, color: '#5F6561' },
-  childList: { paddingHorizontal: 22 },
-  childRow: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: 13, borderBottomWidth: 1, borderBottomColor: '#F0F1F1' },
+  sheet: {
+    maxHeight: '78%',
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+    paddingBottom: 8,
+    shadowColor: '#1A1D1C',
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
+  },
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingTop: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#F0F1F1' },
+  sheetCloseBtn: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
+  sheetCloseText: { fontSize: 24, lineHeight: 26, fontWeight: FontWeight.regular, color: '#8C96A0' },
+  sheetTitle: { flex: 1, ...Type.headline, fontWeight: FontWeight.semibold, textAlign: 'center' },
+  sheetAddBtn: { minWidth: 30, alignItems: 'flex-end', justifyContent: 'center', paddingHorizontal: 2 },
+  sheetAddText: { ...Type.body, color: '#167C80', fontWeight: FontWeight.semibold },
+  // 不设 flexGrow: 0 —— 行数超限时靠内联 height 限高，未超限时按内容自然高度
+  childScroll: { flexShrink: 1 },
+  childList: { paddingHorizontal: 18, paddingTop: 4 },
+  childRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 13, borderBottomWidth: 1, borderBottomColor: '#F0F1F1' },
+  // 末行不画分隔线，避免与卡片底部留白之间出现一道悬空的横线
+  childRowLast: { borderBottomWidth: 0 },
   childIconBox: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  childIcon: { fontSize: GlyphSize.md },
+  childIcon: { ...Glyph.md },
   childLabel: { flex: 1, ...Type.body, fontWeight: FontWeight.medium, color: '#2D332F' },
-  checkmark: { fontSize: GlyphSize.md, fontWeight: FontWeight.semibold, color: '#3A6A8A' },
+  checkmark: { ...Glyph.md, fontWeight: FontWeight.semibold, color: '#3A6A8A' },
 });

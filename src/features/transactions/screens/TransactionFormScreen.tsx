@@ -1,12 +1,12 @@
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Alert, Keyboard, Modal, Platform, Pressable, ScrollView, StatusBar, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { FontWeight, GlyphSize, Type } from '@/constants/theme';
+import { FontWeight, Glyph, Numeric, Type } from '@/constants/theme';
 import { findTemplate } from '@/features/accounts/domain/account.templates';
 import { CategoryGrid } from '@/features/transactions/components/CategoryGrid';
 import { TransactionKeypad } from '@/features/transactions/components/TransactionKeypad';
@@ -40,9 +40,19 @@ export function TransactionFormScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
   const [accountPicker, setAccountPicker] = useState<'source' | 'target' | null>(null);
-  const [noteFocused, setNoteFocused] = useState(false);
+  // 键盘区始终渲染（不卸载），只用 opacity/pointerEvents 切换。
+  // 卸载键盘区会让 scroll 扩缩 ~280px，引起整屏跳闪。
+  // keyboardDidShow/keyboardDidHide 在动画完成后才触发，
+  // 确保切换时系统键盘已经完全盖住/离开键盘区域。
+  const [keypadVisible, setKeypadVisible] = useState(true);
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', () => setKeypadVisible(false));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeypadVisible(true));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submittingRef = useRef(false);
+  const noteRef = useRef<TextInput>(null);
   const { categories, accounts } = useTransactionFormData(type === 'income' ? 'income' : 'expense');
 
   // 用 derive 代替 effect 纠正 state，避免额外的渲染循环。
@@ -161,38 +171,48 @@ export function TransactionFormScreen() {
           </View>
         </View>
 
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          {type !== 'transfer' ? <CategoryGrid categories={categories} selectedCategoryId={effectiveCategoryId} onCategoryChange={setCategoryId} onSettingsPress={() => router.push('/categories')} /> : <View style={styles.transferHint}><ThemedText style={styles.transferIcon}>⇄</ThemedText><ThemedText style={styles.transferTitle}>账户间转账</ThemedText><ThemedText type="small" themeColor="textSecondary">选择转出和转入账户</ThemedText></View>}
-
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+          {/* 键盘出现时铺一层透明遮罩：点分类格或空白处都能收起键盘 */}
+          {!keypadVisible ? (
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => Keyboard.dismiss()} />
+          ) : null}
+          {type !== 'transfer' ? <CategoryGrid categories={categories} selectedCategoryId={effectiveCategoryId} onCategoryChange={setCategoryId} onSettingsPress={() => router.push('/categories')} onAddChildPress={(parent) => router.push({ pathname: '/categories/create', params: { type: type === 'income' ? 'income' : 'expense', parentId: parent.id, parentName: parent.name, parentIcon: parent.icon } })} /> : <View style={styles.transferHint}><ThemedText style={styles.transferIcon}>⇄</ThemedText><ThemedText style={styles.transferTitle}>账户间转账</ThemedText><ThemedText type="small" themeColor="textSecondary">选择转出和转入账户</ThemedText></View>}
         </ScrollView>
 
         <View style={styles.quickOptions}>
           <Pressable onPress={() => setAccountPicker('source')} style={styles.quickOption}>
-            <View style={[styles.quickIcon, { backgroundColor: '#D3A837' }]}><ThemedText style={styles.quickIconText}>▤</ThemedText></View>
+            <ThemedText style={styles.quickOptionIcon}>💳</ThemedText>
             <ThemedText style={styles.quickText}>{selectedAccount?.name ?? '账户'}</ThemedText>
           </Pressable>
           {type === 'transfer' ? (
             <Pressable onPress={() => setAccountPicker('target')} style={styles.quickOption}>
-              <View style={[styles.quickIcon, { backgroundColor: '#2D7185' }]}><ThemedText style={styles.quickIconText}>↗</ThemedText></View>
+              <ThemedText style={styles.quickOptionIcon}>↗</ThemedText>
               <ThemedText style={styles.quickText}>{selectedTransferAccount?.name ?? '转入账户'}</ThemedText>
             </Pressable>
           ) : (
             <>
-              <Pressable style={styles.quickOption}><View style={[styles.quickIcon, { backgroundColor: '#3E9DD0' }]}><ThemedText style={styles.quickIconText}>▣</ThemedText></View><ThemedText style={styles.quickText}>报销</ThemedText></Pressable>
-              <Pressable style={styles.quickOption}><View style={[styles.quickIcon, { backgroundColor: '#1F9B89' }]}><ThemedText style={styles.quickIconText}>#</ThemedText></View><ThemedText style={styles.quickText}>标签</ThemedText></Pressable>
-              <Pressable style={styles.quickOption}><View style={[styles.quickIcon, { backgroundColor: '#9B9BA2' }]}><ThemedText style={styles.quickIconText}>＄</ThemedText></View><ThemedText style={styles.quickText}>不计入</ThemedText></Pressable>
+              <Pressable style={styles.quickOption}><ThemedText style={styles.quickOptionIcon}>🧾</ThemedText><ThemedText style={styles.quickText}>报销</ThemedText></Pressable>
+              <Pressable style={styles.quickOption}><ThemedText style={styles.quickOptionIcon}>#</ThemedText><ThemedText style={styles.quickText}>标签</ThemedText></Pressable>
+              <Pressable style={styles.quickOption}><ThemedText style={styles.quickOptionIcon}>∅</ThemedText><ThemedText style={styles.quickText}>不计入</ThemedText></Pressable>
             </>
           )}
+          <View style={styles.quickSpacer} />
+          <Pressable onPress={() => router.push('/settings')} style={styles.quickSettingsBtn}>
+            <ThemedText style={styles.quickSettingsIcon}>⚙</ThemedText>
+          </Pressable>
         </View>
 
         <View style={styles.inputBar}>
-          <Pressable style={styles.downButton}><ThemedText style={styles.downText}>⌄</ThemedText></Pressable>
+          {keypadVisible ? (
+            <Pressable onPress={() => noteRef.current?.focus()} hitSlop={6} style={styles.noteToggle}>
+              <ThemedText style={styles.noteToggleIcon}>∧</ThemedText>
+            </Pressable>
+          ) : null}
           <TextInput
+            ref={noteRef}
             value={note}
             onChangeText={setNote}
-            onFocus={() => setNoteFocused(true)}
-            onBlur={() => setNoteFocused(false)}
-            onSubmitEditing={() => { Keyboard.dismiss(); setNoteFocused(false); }}
+            onSubmitEditing={() => Keyboard.dismiss()}
             returnKeyType="done"
             blurOnSubmit
             maxLength={150}
@@ -201,11 +221,19 @@ export function TransactionFormScreen() {
             style={[styles.noteInput, { color: theme.text }]}
           />
           <Pressable onPress={openDatePicker} style={styles.datePill}><ThemedText style={styles.dateIcon}>▦</ThemedText><ThemedText style={styles.dateText}>{formatDateTime(occurredAt)}</ThemedText></Pressable>
-          <Pressable onPress={() => { Keyboard.dismiss(); setNoteFocused(false); }}>
+          <Pressable onPress={() => Keyboard.dismiss()}>
             <ThemedText style={[styles.amountPreview, { color: type === 'income' ? '#2D7185' : type === 'transfer' ? '#6A6A74' : '#D85C50' }]}>¥{amount || '0.00'}</ThemedText>
           </Pressable>
         </View>
-        {!noteFocused ? <TransactionKeypad disabled={isSubmitting} onKeyPress={handleKeyPress} onBackspace={handleBackspace} onSave={() => void handleSubmit()} onSaveAndContinue={() => void handleSubmit(true)} /> : null}
+        {/* 键盘区始终保留在布局中，切换时只改 opacity + pointerEvents，
+            不改布局尺寸 —— 挂载/卸载会导致 scroll 区突然扩缩，引起整屏跳闪。
+            键盘出现时它被系统键盘盖住（iOS 叠层，Android 需 pan 模式），
+            键盘退出后恢复可交互。*/}
+        <View
+          style={{ opacity: keypadVisible ? 1 : 0 }}
+          pointerEvents={keypadVisible ? 'auto' : 'none'}>
+          <TransactionKeypad disabled={isSubmitting} onKeyPress={handleKeyPress} onBackspace={handleBackspace} onSave={() => void handleSubmit()} onSaveAndContinue={() => void handleSubmit(true)} />
+        </View>
         <Modal visible={showDatePicker} transparent animationType="fade" onRequestClose={() => setShowDatePicker(false)}>
           <View style={styles.pickerBackdrop}>
             <View style={styles.pickerCard}>
@@ -252,25 +280,29 @@ const styles = StyleSheet.create({
   activeTypeText: { color: '#FFFFFF' },
   disabledTypeItem: { opacity: 0.45 },
   disabledType: { color: '#9AABB0' },
-  settings: { fontSize: GlyphSize.lg, color: '#71808C' },
+  settings: { ...Glyph.lg, color: '#71808C' },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 10 },
   transferHint: { alignItems: 'center', justifyContent: 'center', paddingVertical: 45, gap: 7 },
-  transferIcon: { fontSize: GlyphSize.xxl, color: '#5A6B78' },
+  transferIcon: { ...Glyph.xxl, color: '#5A6B78' },
   transferTitle: { ...Type.headline, fontWeight: FontWeight.semibold },
-  quickOptions: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 6, paddingBottom: 8, gap: 8, backgroundColor: '#FFFFFF' },
-  quickOption: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 4, paddingVertical: 3 },
-  quickIcon: { width: 29, height: 29, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  quickIconText: { color: '#FFFFFF', fontWeight: FontWeight.bold, fontSize: GlyphSize.sm },
-  quickText: { ...Type.footnote, fontWeight: FontWeight.semibold, color: '#3E403E' },
-  inputBar: { minHeight: 64, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 9, gap: 7, borderTopWidth: 1, borderColor: '#E6ECE8', backgroundColor: '#FFFFFF' },
-  downButton: { width: 38, height: 38, borderRadius: 12, backgroundColor: '#ECEEF0', alignItems: 'center', justifyContent: 'center' },
-  downText: { fontSize: GlyphSize.lg, lineHeight: 26, color: '#4A6070' },
+  quickOptions: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingTop: 5, paddingBottom: 5, gap: 5, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#EEF0F2' },
+  // 药丸形带描边，参考图样式
+  quickOption: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 7, paddingVertical: 5, borderRadius: 16, borderWidth: 1, borderColor: '#E4E8EC', backgroundColor: '#F8F9FA' },
+  quickOptionIcon: { fontSize: 13, lineHeight: 16 },
+  quickText: { ...Type.footnote, fontWeight: FontWeight.medium, color: '#3A4249' },
+  quickSpacer: { flex: 1 },
+  quickSettingsBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#F0F2F4', alignItems: 'center', justifyContent: 'center' },
+  quickSettingsIcon: { ...Glyph.sm, color: '#8C9AA6' },
+  inputBar: { minHeight: 50, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 9, gap: 7, borderTopWidth: 1, borderColor: '#E6ECE8', backgroundColor: '#FFFFFF' },
+  downButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#ECEEF0', alignItems: 'center', justifyContent: 'center' },
+  noteToggle: { width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: '#C8CDD2', alignItems: 'center', justifyContent: 'center' },
+  noteToggleIcon: { fontSize: 11, lineHeight: 14, color: '#8C96A0', fontWeight: FontWeight.medium, marginTop: -1 },
   noteInput: { flex: 1, minWidth: 70, ...Type.body, paddingVertical: 8, color: '#6E7772' },
   datePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 7, paddingVertical: 8, borderRadius: 14, backgroundColor: '#ECEEF0' },
-  dateIcon: { color: '#5A6B78', fontSize: GlyphSize.sm },
-  dateText: { ...Type.footnote, fontWeight: FontWeight.semibold },
-  amountPreview: { ...Type.title, fontWeight: FontWeight.bold, letterSpacing: -0.3, minWidth: 78, textAlign: 'right' },
+  dateIcon: { ...Glyph.sm, color: '#5A6B78' },
+  dateText: { ...Type.footnote, ...Numeric, fontWeight: FontWeight.semibold },
+  amountPreview: { ...Type.title, ...Numeric, fontWeight: FontWeight.bold, minWidth: 78, textAlign: 'right' },
   pickerBackdrop: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: 'rgba(20, 28, 32, 0.35)' },
   pickerCard: { borderRadius: 20, padding: 18, backgroundColor: '#FFFFFF', alignItems: 'center', gap: 12 },
   pickerTitle: { ...Type.headline, fontWeight: FontWeight.semibold },

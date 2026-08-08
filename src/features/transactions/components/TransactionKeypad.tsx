@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { FontWeight, Type } from '@/constants/theme';
+import { FontWeight, Numeric, Type } from '@/constants/theme';
 
 const KEYS = [
   ['1', '2', '3', '⌫'],
@@ -50,14 +50,17 @@ export function TransactionKeypad({
 }
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: '#F0F2F4', paddingHorizontal: 12, paddingTop: 10, paddingBottom: 10, gap: 8 },
-  row: { flexDirection: 'row', gap: 8 },
-  key: { flex: 1, height: 58, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E6EA' },
-  saveKey: { backgroundColor: '#1C2128', borderColor: '#1C2128' },
-  keyText: { ...Type.title, color: '#2D3A45', fontWeight: FontWeight.regular },
-  /** 「保存」「再记」是中文双字键，跟随文本阶梯而非数字键的字号 */
-  submitText: { ...Type.headline, fontWeight: FontWeight.semibold },
+  container: { backgroundColor: '#EDEEF0', paddingHorizontal: 10, paddingTop: 8, paddingBottom: 8, gap: 5 },
+  row: { flexDirection: 'row', gap: 5 },
+  key: { flex: 1, height: 56, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
+  saveKey: { backgroundColor: '#1C2128' },
+  keyText: { ...Type.title, ...Numeric, color: '#2D3A45', fontWeight: FontWeight.regular },
+  /**
+   * 「保存」「再记」是中文双字键：跟随文本阶梯而非数字键的字号，
+   * 并把 keyText 继承来的 Numeric 字体族清掉 —— 中文要走系统默认字体。
+   */
+  submitText: { ...Type.headline, fontFamily: undefined, fontWeight: FontWeight.semibold },
   saveText: { color: '#FFFFFF' },
   disabledKey: { opacity: 0.45 },
-  pressed: { opacity: 0.7, transform: [{ scale: 0.97 }] },
+  pressed: { opacity: 0.7, transform: [{ scale: 0.96 }] },
 });

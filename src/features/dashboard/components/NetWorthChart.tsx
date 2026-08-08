@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { Numeric } from '@/constants/theme';
 import { formatCurrencyCompact } from '@/shared/utils/currency';
 
 export function NetWorthChart({
@@ -45,9 +46,9 @@ export function NetWorthChart({
           <View key={line} style={[styles.gridLine, { top: line * (chartHeight / 3) }]} />
         ))}
         <View style={styles.yLabels}>
-          <ThemedText type="small" themeColor="textSecondary">{formatCurrencyCompact(max)}</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">{formatCurrencyCompact((max + min) / 2)}</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">{formatCurrencyCompact(min)}</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary" style={Numeric}>{formatCurrencyCompact(max)}</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary" style={Numeric}>{formatCurrencyCompact((max + min) / 2)}</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary" style={Numeric}>{formatCurrencyCompact(min)}</ThemedText>
         </View>
         <View style={[styles.plotArea, { backgroundColor: areaColor }]}>
           {points.slice(0, -1).map((point, index) => {

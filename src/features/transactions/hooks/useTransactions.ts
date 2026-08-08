@@ -1,6 +1,6 @@
 import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useAccountRepository } from '@/features/accounts/hooks/useAccountRepository';
 import { CategoryRepository } from '@/features/categories/data/category.repository';
@@ -70,14 +70,23 @@ export function useTransactionFormData(type: 'income' | 'expense') {
   const [categories, setCategories] = useState<Awaited<ReturnType<typeof categoryRepository.listByType>>>([]);
   const [accounts, setAccounts] = useState<Awaited<ReturnType<typeof accountRepository.list>>>([]);
 
-  useEffect(() => {
-    void Promise.all([categoryRepository.listByType(type), accountRepository.list()]).then(
-      ([nextCategories, nextAccounts]) => {
-        setCategories(nextCategories);
-        setAccounts(nextAccounts);
-      }
-    );
-  }, [accountRepository, categoryRepository, type]);
+  // useFocusEffect 而非 useEffect：从「新建分类 / 账户」页返回时要重新取数，
+  // 否则刚创建的条目在本页看不到。
+  useFocusEffect(
+    useCallback(() => {
+      // 快速切换收支类型会连续触发本 effect，用取消标记丢弃过期结果，
+      // 否则先发的请求可能后到并覆盖新数据。
+      let cancelled = false;
+      void Promise.all([categoryRepository.listByType(type), accountRepository.list()]).then(
+        ([nextCategories, nextAccounts]) => {
+          if (cancelled) return;
+          setCategories(nextCategories);
+          setAccounts(nextAccounts);
+        }
+      );
+      return () => { cancelled = true; };
+    }, [accountRepository, categoryRepository, type])
+  );
 
   return { categories, accounts };
 }

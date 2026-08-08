@@ -5,7 +5,7 @@ import { useHideTabBarOnScroll } from '@/hooks/use-hide-tab-bar-on-scroll';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { FontWeight, GlyphSize, Spacing, Type } from '@/constants/theme';
+import { FontWeight, Glyph, Numeric, Spacing, Type } from '@/constants/theme';
 import { useAccounts } from '@/features/accounts/hooks/useAccounts';
 import { NetWorthChart } from '@/features/dashboard/components/NetWorthChart';
 import { buildNetWorthByPeriod } from '@/features/dashboard/domain/netWorth';
@@ -148,9 +148,9 @@ const styles = StyleSheet.create({
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   brandBlock: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   brandIcon: { width: 32, height: 32, borderRadius: 10, backgroundColor: '#F2E4D7', alignItems: 'center', justifyContent: 'center' },
-  brandIconText: { fontSize: GlyphSize.sm, fontWeight: FontWeight.bold, color: '#B96B48' },
+  brandIconText: { ...Glyph.sm, fontWeight: FontWeight.bold, color: '#B96B48' },
   brandName: { ...Type.headline, fontWeight: FontWeight.bold, letterSpacing: -0.2 },
-  menu: { fontSize: GlyphSize.lg, color: '#71808C' },
+  menu: { ...Glyph.lg, color: '#71808C' },
   segmentedControl: { flexDirection: 'row', backgroundColor: '#ECEDEF', borderRadius: 13, padding: 3 },
   segment: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 11 },
   segmentSelected: { backgroundColor: '#FFFFFF', shadowColor: '#4A6670', shadowOpacity: 0.08, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
@@ -159,12 +159,12 @@ const styles = StyleSheet.create({
   summaryCard: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 13, gap: 8, borderWidth: 1, borderColor: '#ECEDEF', shadowColor: '#5F6870', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
   summaryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
   ledgerName: { ...Type.subhead, fontWeight: FontWeight.medium, color: '#353A40' },
-  changeText: { ...Type.footnote, color: '#D96C55', fontWeight: FontWeight.semibold },
-  totalAssets: { ...Type.display, fontWeight: FontWeight.bold, letterSpacing: -0.2, color: '#1D2329' },
+  changeText: { ...Type.footnote, ...Numeric, color: '#D96C55', fontWeight: FontWeight.semibold },
+  totalAssets: { ...Type.display, ...Numeric, fontWeight: FontWeight.bold, color: '#1D2329' },
   divider: { height: 1, backgroundColor: '#ECEDEF' },
   summaryMetrics: { flexDirection: 'row', alignItems: 'stretch' },
   metric: { flex: 1, gap: 3 },
-  metricAmount: { ...Type.headline, fontWeight: FontWeight.semibold, color: '#252B31' },
+  metricAmount: { ...Type.headline, ...Numeric, fontWeight: FontWeight.semibold, color: '#252B31' },
   metricDivider: { width: 1, backgroundColor: '#ECEDEF', marginHorizontal: 10 },
   chartCard: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 13, gap: 9, borderWidth: 1, borderColor: '#ECEDEF', shadowColor: '#5F6870', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -182,8 +182,8 @@ const styles = StyleSheet.create({
   dayText: { ...Type.footnote, color: '#818990', fontWeight: FontWeight.semibold },
   dayGroup: { marginBottom: 8 },
   emptyState: { alignItems: 'center', paddingVertical: Spacing.five, gap: Spacing.one },
-  emptyIcon: { fontSize: GlyphSize.xxl },
+  emptyIcon: { ...Glyph.xxl },
   emptyTitle: { ...Type.headline, fontWeight: FontWeight.semibold },
   calendarPlaceholder: { minHeight: 420, alignItems: 'center', justifyContent: 'center', gap: Spacing.two },
-  calendarIcon: { fontSize: GlyphSize.xxl, color: '#94A3B8' },
+  calendarIcon: { ...Glyph.xxl, color: '#94A3B8' },
 });

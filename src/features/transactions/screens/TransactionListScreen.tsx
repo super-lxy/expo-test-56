@@ -4,7 +4,7 @@ import { useHideTabBarOnScroll } from '@/hooks/use-hide-tab-bar-on-scroll';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { FontWeight, GlyphSize, Spacing, Type } from '@/constants/theme';
+import { FontWeight, Glyph, Spacing, Type } from '@/constants/theme';
 import { TransactionItem } from '../components/TransactionItem';
 import { useTransactions } from '../hooks/useTransactions';
 import { dateKey, formatDayGroup } from '@/shared/utils/date';
@@ -58,6 +58,6 @@ const styles = StyleSheet.create({
   dayTitle: { ...Type.footnote, color: '#818990', fontWeight: FontWeight.semibold, marginBottom: 4 },
   emptyList: { flexGrow: 1, padding: Spacing.three },
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.one },
-  emptyIcon: { fontSize: GlyphSize.xxl },
+  emptyIcon: { ...Glyph.xxl },
   emptyTitle: { ...Type.headline, fontWeight: FontWeight.semibold },
 });

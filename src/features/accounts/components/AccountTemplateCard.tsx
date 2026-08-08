@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { FontWeight, GlyphSize, Type } from '@/constants/theme';
+import { FontWeight, Glyph, Type } from '@/constants/theme';
 import type { AccountTemplate } from '../domain/account.templates';
 
 export function AccountTemplateCard({
@@ -38,7 +38,7 @@ const styles = StyleSheet.create({
   card: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 16, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#ECEDEF' },
   pressed: { opacity: 0.6 },
   icon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  iconText: { fontSize: GlyphSize.md },
+  iconText: { ...Glyph.md },
   info: { flex: 1, gap: 3 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   label: { ...Type.body, fontWeight: FontWeight.semibold },
@@ -48,5 +48,5 @@ const styles = StyleSheet.create({
   badgeText: { ...Type.caption, fontWeight: FontWeight.semibold },
   badgeTextAsset: { color: '#1F8A5F' },
   badgeTextLiability: { color: '#C4432F' },
-  chevron: { fontSize: GlyphSize.md, color: '#C3CBD2', fontWeight: FontWeight.regular },
+  chevron: { ...Glyph.md, color: '#C3CBD2', fontWeight: FontWeight.regular },
 });

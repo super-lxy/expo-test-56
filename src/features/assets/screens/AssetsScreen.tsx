@@ -6,7 +6,7 @@ import { useHideTabBarOnScroll } from '@/hooks/use-hide-tab-bar-on-scroll';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { FontWeight, GlyphSize, Type } from '@/constants/theme';
+import { FontWeight, Glyph, Numeric, Type } from '@/constants/theme';
 import type { AccountBalance } from '@/features/accounts/domain/account.types';
 import { findTemplate } from '@/features/accounts/domain/account.templates';
 import { useAccounts } from '@/features/accounts/hooks/useAccounts';
@@ -123,15 +123,15 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 120, gap: 14 },
   topBar: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   topActions: { flexDirection: 'row', gap: 13, width: 95 },
-  topIcon: { fontSize: GlyphSize.md, color: '#77736D' },
+  topIcon: { ...Glyph.md, color: '#77736D' },
   pageTitle: { ...Type.headline, fontWeight: FontWeight.semibold },
   moreButton: { backgroundColor: '#FFFFFF', borderRadius: 22, paddingHorizontal: 12, paddingVertical: 8 },
   moreText: { ...Type.subhead, color: '#77736D', fontWeight: FontWeight.semibold },
   heroCard: { backgroundColor: '#8B8780', borderRadius: 19, padding: 17, gap: 9 },
   heroHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   heroLabel: { ...Type.subhead, color: '#F8F7F5', fontWeight: FontWeight.medium },
-  heroChange: { ...Type.footnote, color: '#F1B4B7', fontWeight: FontWeight.semibold },
-  heroAmount: { ...Type.hero, color: '#FFFFFF', fontWeight: FontWeight.bold, letterSpacing: -0.4 },
+  heroChange: { ...Type.footnote, ...Numeric, color: '#F1B4B7', fontWeight: FontWeight.semibold },
+  heroAmount: { ...Type.hero, ...Numeric, color: '#FFFFFF', fontWeight: FontWeight.bold },
   heroChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 4 },
   heroChip: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 5 },
   emptyChip: { backgroundColor: 'rgba(255,255,255,0.22)' },
@@ -145,10 +145,10 @@ const styles = StyleSheet.create({
   accountCardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   accountName: { flex: 1, ...Type.body, fontWeight: FontWeight.semibold },
   accountIcon: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#F1F0EE', alignItems: 'center', justifyContent: 'center' },
-  accountIconText: { color: '#817D76', fontSize: GlyphSize.sm, fontWeight: FontWeight.bold },
-  accountAmount: { ...Type.headline, fontWeight: FontWeight.semibold, color: '#5C5954' },
+  accountIconText: { ...Glyph.sm, color: '#817D76', fontWeight: FontWeight.bold },
+  accountAmount: { ...Type.headline, ...Numeric, fontWeight: FontWeight.semibold, color: '#5C5954' },
   addAccountCard: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E3E0DB', borderStyle: 'dashed' },
-  addAccountIcon: { fontSize: GlyphSize.lg, color: '#8C8880' },
+  addAccountIcon: { ...Glyph.lg, color: '#8C8880' },
   addAccountText: { ...Type.subhead, color: '#77736D', fontWeight: FontWeight.semibold },
   trendHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 3 },
   rangeControl: { flexDirection: 'row', alignItems: 'center', gap: 2 },
