@@ -43,7 +43,23 @@
         }
       ],
       "expo-sqlite",
-      "@react-native-community/datetimepicker"
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "允许访问相册以选择分类图标。",
+          "cameraPermission": false,
+          "microphonePermission": false,
+          "colors": {
+            "cropToolbarColor": "#F5F7FA",
+            "cropToolbarIconColor": "#17212B",
+            "cropToolbarActionTextColor": "#167C80",
+            "cropBackButtonIconColor": "#17212B",
+            "cropBackgroundColor": "#FFFFFF"
+          }
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,

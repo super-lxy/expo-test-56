@@ -1,15 +1,17 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Animated, Dimensions, Easing, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Animated, Dimensions, Easing, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { FontWeight, Glyph, Spacing, Type } from '@/constants/theme';
+import { CategoryIcon } from '../components/CategoryIcon';
 import { useCategoryRepository } from '@/features/transactions/hooks/useTransactions';
 import type { Category, CategoryType } from '../domain/category.types';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
+const CATEGORY_ICON_BACKGROUND = '#F1F3F4';
 
 /** 一个一级分类行（含展开后的子分类横向滚动区）*/
 function CategoryRow({
@@ -35,8 +37,8 @@ function CategoryRow({
         {/* 左侧展开箭头 */}
         <ThemedText style={[styles.chevron, expanded && styles.chevronOpen]}>›</ThemedText>
         {/* 图标方块 */}
-        <View style={[styles.iconBox, { backgroundColor: `${root.color}18` }]}>
-          <ThemedText style={styles.iconText}>{root.icon}</ThemedText>
+        <View style={styles.iconBox}>
+          <CategoryIcon icon={root.icon} iconType={root.iconType} imageSize={36} textStyle={styles.iconText} />
         </View>
         <ThemedText style={styles.rowName}>{root.name}</ThemedText>
         <Pressable onPress={onMorePress} hitSlop={10} style={styles.moreBtn}>
@@ -62,8 +64,8 @@ function CategoryRow({
             contentContainerStyle={styles.childScroll}>
             {items.map((child) => (
               <Pressable key={child.id} onPress={() => onEditChild(child)} style={styles.childChip}>
-                <View style={[styles.childIconBox, { backgroundColor: `${child.color}18` }]}>
-                  <ThemedText style={styles.childIconText}>{child.icon}</ThemedText>
+                <View style={styles.childIconBox}>
+                  <CategoryIcon icon={child.icon} iconType={child.iconType} imageSize={34} textStyle={styles.childIconText} />
                 </View>
                 <ThemedText style={styles.childName} numberOfLines={1}>{child.name}</ThemedText>
               </Pressable>
@@ -150,6 +152,34 @@ export function CategoriesScreen() {
     setSelectedChild(category);
   }
 
+  function confirmDelete(category: Category) {
+    const isRoot = category.parentId === null;
+    setSelectedChild(null);
+    Alert.alert(
+      isRoot ? '删除一级分类' : '删除子分类',
+      isRoot
+        ? `删除“${category.name}”后，它和下面的子分类将不再出现在记账菜单中，历史账单仍会保留。`
+        : `删除“${category.name}”后，它将不再出现在记账菜单中，历史账单仍会保留。`,
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '删除',
+          style: 'destructive',
+          onPress: () => {
+            void repository.archive(category.id).then(() => {
+              setCategories((current) => current.filter(
+                (item) => item.id !== category.id && item.parentId !== category.id
+              ));
+              if (isRoot) setExpandedId(null);
+            }).catch((error) => {
+              Alert.alert('无法删除', error instanceof Error ? error.message : '请稍后重试');
+            });
+          },
+        },
+      ]
+    );
+  }
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
@@ -187,7 +217,15 @@ export function CategoriesScreen() {
               expanded={expandedId === root.id}
               onToggle={() => toggle(root.id)}
               onAddChild={() =>
-                router.push({ pathname: '/categories/create', params: { type, parentId: root.id, parentName: root.name, parentIcon: root.icon } })
+                router.push({
+                  pathname: '/categories/create',
+                  params: {
+                    type,
+                    parentId: root.id,
+                    parentName: root.name,
+                    ...(root.iconType === 'emoji' ? { parentIcon: root.icon } : {}),
+                  },
+                })
               }
               onEditChild={openSheet}
               onMorePress={() => openSheet(root)}
@@ -226,8 +264,8 @@ export function CategoriesScreen() {
                   { transform: [{ translateY }] },
                 ]}>
                 <View style={styles.sheetHeader}>
-                  <View style={[styles.sheetIconBox, { backgroundColor: `${sheetChild.color}18` }]}>
-                    <ThemedText style={styles.sheetIcon}>{sheetChild.icon}</ThemedText>
+                  <View style={styles.sheetIconBox}>
+                    <CategoryIcon icon={sheetChild.icon} iconType={sheetChild.iconType} imageSize={28} textStyle={styles.sheetIcon} />
                   </View>
                   <ThemedText style={styles.sheetTitle}>{sheetChild.name}</ThemedText>
                   <Pressable onPress={() => setSelectedChild(null)} hitSlop={10} style={styles.sheetClose}>
@@ -246,10 +284,12 @@ export function CategoriesScreen() {
                       pathname: '/categories/create',
                       params: {
                         categoryId: target.id,
-                        existingName: target.name,
-                        existingIcon: target.icon,
                         type: target.type,
-                        ...(parent ? { parentId: parent.id, parentName: parent.name, parentIcon: parent.icon } : {}),
+                        ...(parent ? {
+                          parentId: parent.id,
+                          parentName: parent.name,
+                          ...(parent.iconType === 'emoji' ? { parentIcon: parent.icon } : {}),
+                        } : {}),
                       },
                     });
                   }}>
@@ -260,6 +300,18 @@ export function CategoriesScreen() {
                     <ThemedText type="small" themeColor="textSecondary">修改「{sheetChild.name}」的名称和图标</ThemedText>
                   </View>
                   <ThemedText style={styles.sheetChevron}>›</ThemedText>
+                </Pressable>
+                <Pressable
+                  style={[styles.sheetAction, styles.sheetDeleteAction]}
+                  onPress={() => confirmDelete(sheetChild)}>
+                  <View style={styles.sheetActionText}>
+                    <ThemedText style={[styles.sheetActionTitle, styles.sheetDeleteTitle]}>
+                      {sheetChild.parentId === null ? '删除分类' : '删除子分类'}
+                    </ThemedText>
+                    <ThemedText type="small" style={styles.sheetDeleteHint}>
+                      历史账单不会被删除
+                    </ThemedText>
+                  </View>
                 </Pressable>
               </Animated.View>
             </View>
@@ -291,7 +343,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, gap: 10, backgroundColor: '#FFFFFF' },
   chevron: { ...Type.body, color: '#C0C8D0', fontWeight: FontWeight.regular, width: 14 },
   chevronOpen: { color: '#6A7A88', transform: [{ rotate: '90deg' }] },
-  iconBox: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  iconBox: { width: 46, height: 46, borderRadius: 14, backgroundColor: CATEGORY_ICON_BACKGROUND, alignItems: 'center', justifyContent: 'center' },
   iconText: { ...Glyph.lg },
   rowName: { flex: 1, ...Type.body, fontWeight: FontWeight.medium },
   moreBtn: { paddingHorizontal: 6 },
@@ -307,7 +359,7 @@ const styles = StyleSheet.create({
   addChildBtnText: { ...Type.footnote, color: '#167C80', fontWeight: FontWeight.semibold },
   childScroll: { paddingHorizontal: 16, gap: 6, paddingBottom: 2 },
   childChip: { alignItems: 'center', gap: 4, width: 54 },
-  childIconBox: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  childIconBox: { width: 46, height: 46, borderRadius: 14, backgroundColor: CATEGORY_ICON_BACKGROUND, alignItems: 'center', justifyContent: 'center' },
   childIconText: { ...Glyph.md },
   childName: { ...Type.caption, color: '#4A5560', textAlign: 'center' },
 
@@ -331,13 +383,16 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#EEF0F2' },
-  sheetIconBox: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  sheetIconBox: { width: 36, height: 36, borderRadius: 11, backgroundColor: CATEGORY_ICON_BACKGROUND, alignItems: 'center', justifyContent: 'center' },
   sheetIcon: { ...Glyph.md },
   sheetTitle: { flex: 1, ...Type.headline, fontWeight: FontWeight.semibold },
   sheetClose: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#F0F2F4', alignItems: 'center', justifyContent: 'center' },
   sheetCloseText: { ...Type.headline, color: '#8C96A0', lineHeight: 22 },
   sheetAction: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingVertical: 16 },
+  sheetDeleteAction: { borderTopWidth: 1, borderTopColor: '#F1F2F3' },
   sheetActionText: { flex: 1, gap: 2 },
   sheetActionTitle: { ...Type.body, fontWeight: FontWeight.medium },
+  sheetDeleteTitle: { color: '#C94D45' },
+  sheetDeleteHint: { color: '#A9827D' },
   sheetChevron: { ...Type.headline, color: '#C0C8D0' },
 });

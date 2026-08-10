@@ -1,22 +1,25 @@
 import { useEffect, useState } from 'react';
-import { Animated, Dimensions, Easing, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Animated, Dimensions, Easing, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { FontWeight, Glyph, Type } from '@/constants/theme';
+import { CategoryIcon } from '@/features/categories/components/CategoryIcon';
 import type { Category } from '@/features/categories/domain/category.types';
+import { ElasticBoundaryScrollView } from '@/features/transactions/components/ElasticBoundaryScrollView';
 
 /** 弹窗一屏最多显示的子分类行数，超出滚动 */
 const MAX_VISIBLE_ROWS = 6;
 const CHILD_ROW_HEIGHT = 56;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
+const CATEGORY_ICON_BACKGROUND = '#F1F3F4';
 
 function rowsOf<T>(items: T[], size: number) {
   return Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, index * size + size));
 }
 
 /**
- * 建库时每个一级分类都会生成一个同名的兜底子分类（`${rootId}-default`），
+ * 每个一级分类带有一个同名兜底子分类（`${rootId}-default`），
  * 它代表「就是这个大类，没有细分」。
  * 只用 ID 匹配而非名称匹配：若用户自建了与父级同名的子分类，
  * 名称匹配会误把它当作兜底项，导致角标消失、排序前移、标签不加父级前缀。
@@ -88,16 +91,14 @@ export function CategoryGrid({
   const selectedRootId = selected?.parentId ?? selected?.id;
   // 收起动画期间 expandedRootId 已清空，用上一次的值维持卡片内容不闪空
   const expandedRoot = roots.find((category) => category.id === (expandedRootId ?? lastRootId));
-  // 兜底项排到首位：它的 sort_order 是 root.sortOrder * 100，
-  // 在有显式子分类的大类（如交通 sort 30-34 vs 兜底 200）里会落到最后。
+  // 如果旧分类带有兜底项，将它排到首位。
   const children = expandedRoot
     ? categories
         .filter((category) => category.parentId === expandedRoot.id)
         .sort((a, b) => Number(isDefaultChild(b, expandedRoot)) - Number(isDefaultChild(a, expandedRoot)))
     : [];
 
-  // ⋯ 角标只在有真实细分时显示。兜底项不算 —— 每个一级分类建库时都会挂一个
-  // 同名 -default 项，把它算进来会让每一格都挂角标，角标就失去了指示意义。
+  // ⋯ 角标只在有真实细分时显示，旧分类的同名兜底项不计入。
   function realChildrenOf(root: Category) {
     return categories.filter((item) => item.parentId === root.id && !isDefaultChild(item, root));
   }
@@ -109,10 +110,10 @@ export function CategoryGrid({
       && (selected.id === category.id || selected.parentId === category.id);
     if (!alreadyInThisRoot) {
       const defaultChild = categories.find((item) => item.parentId === category.id && isDefaultChild(item, category));
-      // 先落选中再弹窗：点了立刻有反馈，关掉弹窗也不会退回上一个分类。
-      onCategoryChange(defaultChild?.id ?? category.id);
+      // 先落选中再弹窗：关闭弹窗时仍保留这个一级分类的同名默认子分类。
+      if (defaultChild) onCategoryChange(defaultChild.id);
     }
-    // 弹窗对每个一级分类都开 —— 里面至少有兜底项和「添加子分类」入口。
+    // 弹窗对每个一级分类都开，用户在其中选择具体二级分类。
     setLastRootId(category.id);
     setMounted(true);
     setExpandedRootId(category.id);
@@ -137,6 +138,7 @@ export function CategoryGrid({
               );
             }
             const isSelected = item.id === selectedCategoryId || item.id === selectedRootId;
+            const displayCategory = selected?.parentId === item.id ? selected : item;
             // 选中细分时格子显示「父-子」，选中兜底项（或大类本身）时只显示大类名
             const label = isSelected && selected && !isDefaultChild(selected, item) && selected.id !== item.id
               ? `${item.name}-${selected.name}`
@@ -148,7 +150,12 @@ export function CategoryGrid({
                 style={styles.cell}>
                 <View style={styles.cellInner}>
                   <View style={[styles.iconBox, isSelected && styles.iconBoxSelected]}>
-                    <ThemedText style={styles.icon}>{item.icon}</ThemedText>
+                    <CategoryIcon
+                      icon={displayCategory.icon}
+                      iconType={displayCategory.iconType}
+                      imageSize={36}
+                      textStyle={styles.icon}
+                    />
                     {realChildrenOf(item).length > 0 ? <View style={styles.moreBadge}><ThemedText style={styles.moreText}>⋯</ThemedText></View> : null}
                   </View>
                   <ThemedText style={[styles.label, isSelected && styles.labelSelected]} numberOfLines={1}>{label}</ThemedText>
@@ -204,7 +211,7 @@ export function CategoryGrid({
               </View>
               {/* 超过 MAX_VISIBLE_ROWS 行时限高滚动。
                   bounces + 顶底的圆弧留白：拖到尽头会露出弧形，提示已到边界。 */}
-              <ScrollView
+              <ElasticBoundaryScrollView
                 style={[
                   styles.childScroll,
                   children.length > MAX_VISIBLE_ROWS && { height: MAX_VISIBLE_ROWS * CHILD_ROW_HEIGHT },
@@ -221,8 +228,8 @@ export function CategoryGrid({
                       onCategoryChange(category.id);
                       setExpandedRootId(null);
                     }}>
-                    <View style={[styles.childIconBox, { backgroundColor: `${category.color}22` }]}>
-                      <ThemedText style={styles.childIcon}>{category.icon}</ThemedText>
+                    <View style={styles.childIconBox}>
+                      <CategoryIcon icon={category.icon} iconType={category.iconType} imageSize={31} textStyle={styles.childIcon} />
                     </View>
                     <ThemedText style={styles.childLabel} numberOfLines={1}>
                       {isDefaultChild(category, expandedRoot) ? category.name : `${expandedRoot.name}-${category.name}`}
@@ -230,7 +237,7 @@ export function CategoryGrid({
                     {category.id === selectedCategoryId ? <ThemedText style={styles.checkmark}>✓</ThemedText> : null}
                   </Pressable>
                 ))}
-              </ScrollView>
+              </ElasticBoundaryScrollView>
             </Animated.View>
           ) : null}
         </View>
@@ -240,21 +247,21 @@ export function CategoryGrid({
 }
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: 8, paddingTop: 10, paddingBottom: 5, gap: 4 },
+  container: { paddingHorizontal: 8, paddingTop: 8, paddingBottom: 3, gap: 2 },
   row: { flexDirection: 'row', gap: 2 },
   cell: { flex: 1 },
   // 整格作为选中高亮的载体：圆角贴合内容，不需要固定尺寸
-  cellInner: { alignItems: 'center', gap: 5, paddingVertical: 6 },
+  cellInner: { alignItems: 'center', gap: 4, paddingVertical: 5 },
   // 圆角方块（squircle）而非圆形：emoji 本身是方形字形，圆底会在四角留下空隙
-  iconBox: { width: 48, height: 48, borderRadius: 15, backgroundColor: '#F4F5F4', alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  iconBoxSelected: { backgroundColor: '#D8E4EE' },
-  settingsIconBox: { backgroundColor: '#EAEDF0' },
+  iconBox: { width: 46, height: 46, borderRadius: 14, backgroundColor: CATEGORY_ICON_BACKGROUND, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  iconBoxSelected: { backgroundColor: '#E1E8EC' },
+  settingsIconBox: { backgroundColor: CATEGORY_ICON_BACKGROUND },
   icon: { ...Glyph.lg },
   label: { ...Type.footnote, fontWeight: FontWeight.regular, color: '#4A4C4A' },
   labelSelected: { color: '#2B4B63', fontWeight: FontWeight.medium },
   settingsLabel: { color: '#71808C' },
-  moreBadge: { position: 'absolute', right: -1, bottom: -1, width: 15, height: 15, borderRadius: 8, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
-  moreText: { color: '#9AA2A9', fontSize: 10, lineHeight: 11, fontWeight: FontWeight.semibold },
+  moreBadge: { position: 'absolute', right: -3, bottom: -1, width: 14, height: 14, borderRadius: 7, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  moreText: { color: '#9AA2A9', fontSize: 8, lineHeight: 9, fontWeight: FontWeight.semibold },
   // 靠下浮动的完整卡片：四角全圆、四周留缝隙，不贴任何屏幕边缘
   modalRoot: { flex: 1, justifyContent: 'flex-end', paddingHorizontal: 12 },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(25, 28, 27, 0.38)' },
@@ -282,7 +289,7 @@ const styles = StyleSheet.create({
   childRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 13, borderBottomWidth: 1, borderBottomColor: '#F0F1F1' },
   // 末行不画分隔线，避免与卡片底部留白之间出现一道悬空的横线
   childRowLast: { borderBottomWidth: 0 },
-  childIconBox: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  childIconBox: { width: 40, height: 40, borderRadius: 12, backgroundColor: CATEGORY_ICON_BACKGROUND, alignItems: 'center', justifyContent: 'center' },
   childIcon: { ...Glyph.md },
   childLabel: { flex: 1, ...Type.body, fontWeight: FontWeight.medium, color: '#2D332F' },
   checkmark: { ...Glyph.md, fontWeight: FontWeight.semibold, color: '#3A6A8A' },

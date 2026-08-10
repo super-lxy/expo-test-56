@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { FontWeight, Glyph, Numeric, Spacing, Type } from '@/constants/theme';
+import { FontWeight, Glyph, Numeric, Type } from '@/constants/theme';
 import { formatCurrency } from '@/shared/utils/currency';
 import { useAccounts } from '../hooks/useAccounts';
 import { findTemplate } from '../domain/account.templates';
@@ -12,8 +12,8 @@ import { findTemplate } from '../domain/account.templates';
 export function AccountListScreen() {
   const router = useRouter();
   const { accounts, loading } = useAccounts();
-  const assets = accounts.filter((a) => a.kind !== 'liability').reduce((sum, a) => sum + a.balanceCents, 0);
-  const liabilities = accounts.filter((a) => a.kind === 'liability').reduce((sum, a) => sum + Math.abs(a.balanceCents), 0);
+  const assets = accounts.filter((a) => a.kind !== 'liability' && a.includeInNetWorth).reduce((sum, a) => sum + a.balanceCents, 0);
+  const liabilities = accounts.filter((a) => a.kind === 'liability' && a.includeInNetWorth).reduce((sum, a) => sum + Math.abs(a.balanceCents), 0);
   const total = assets - liabilities;
 
   return (
@@ -21,8 +21,8 @@ export function AccountListScreen() {
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.header}>
-            <View>
-              <ThemedText type="title">账户</ThemedText>
+            <View style={styles.headerInfo}>
+              <ThemedText style={styles.pageTitle}>账户</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
                 {loading ? '加载中…' : `${accounts.length} 个账户`}
               </ThemedText>
@@ -42,6 +42,12 @@ export function AccountListScreen() {
           </View>
 
           <View style={styles.list}>
+            {!loading && accounts.length === 0 ? (
+              <Pressable onPress={() => router.push('/accounts/create')} style={styles.emptyRow}>
+                <ThemedText themeColor="textSecondary">还没有账户</ThemedText>
+                <ThemedText style={styles.emptyAction}>添加第一个 ›</ThemedText>
+              </Pressable>
+            ) : null}
             {accounts.map((account) => {
               const isLiability = account.kind === 'liability';
               const typeLabel = findTemplate(account.type)?.label ?? '其他';
@@ -72,17 +78,21 @@ export function AccountListScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1 },
-  content: { padding: Spacing.three, paddingBottom: 80, gap: Spacing.two },
+  content: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 60, gap: 8 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  addButton: { backgroundColor: '#DDF3F0', borderRadius: 13, paddingHorizontal: 13, paddingVertical: 9 },
+  headerInfo: { gap: 1 },
+  pageTitle: { ...Type.title, fontWeight: FontWeight.bold },
+  addButton: { backgroundColor: '#DDF3F0', borderRadius: 12, paddingHorizontal: 11, paddingVertical: 7 },
   addText: { ...Type.subhead, color: '#167C80', fontWeight: FontWeight.semibold },
-  totalCard: { backgroundColor: '#167C80', borderRadius: 24, padding: Spacing.four, gap: Spacing.two, shadowColor: '#167C80', shadowOpacity: 0.2, shadowRadius: 14, shadowOffset: { width: 0, height: 7 }, elevation: 4 },
+  totalCard: { backgroundColor: '#167C80', borderRadius: 18, padding: 15, gap: 6, shadowColor: '#167C80', shadowOpacity: 0.14, shadowRadius: 10, shadowOffset: { width: 0, height: 5 }, elevation: 3 },
   totalLabel: { ...Type.subhead, color: '#DDF3F0', fontWeight: FontWeight.medium },
-  totalAmount: { ...Type.hero, ...Numeric, color: '#FFFFFF', fontWeight: FontWeight.bold },
+  totalAmount: { ...Type.display, ...Numeric, color: '#FFFFFF', fontWeight: FontWeight.bold },
   totalHint: { ...Numeric, color: '#B8E3DE' },
-  list: { gap: Spacing.two },
-  accountCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, padding: 12, borderRadius: 18, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E7EDF0' },
-  accountIcon: { width: 46, height: 46, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  list: { gap: 6 },
+  emptyRow: { minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 14, paddingHorizontal: 12, backgroundColor: '#FFFFFF' },
+  emptyAction: { ...Type.subhead, color: '#167C80', fontWeight: FontWeight.semibold },
+  accountCard: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 14, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E7EDF0' },
+  accountIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   accountIconText: { ...Glyph.md },
   accountInfo: { flex: 1, gap: 2 },
   accountName: { ...Type.body, fontWeight: FontWeight.semibold },

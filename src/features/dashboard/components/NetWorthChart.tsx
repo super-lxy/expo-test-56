@@ -10,11 +10,13 @@ export function NetWorthChart({
   xLabels,
   lineColor = '#E76F51',
   areaColor = '#FFF4EF',
+  height = 132,
 }: {
   values: number[];
   xLabels?: string[];
   lineColor?: string;
   areaColor?: string;
+  height?: number;
 }) {
   const [width, setWidth] = useState(0);
   const actualMin = Math.min(...values);
@@ -23,7 +25,7 @@ export function NetWorthChart({
   const min = Math.max(0, actualMin - padding);
   const max = actualMax + padding * 0.5;
   const range = max - min || 1;
-  const chartHeight = 132;
+  const chartHeight = height;
 
   const points = values.map((value, index) => ({
     x: values.length === 1 ? 0 : (index / (values.length - 1)) * Math.max(width - 12, 1),
@@ -41,16 +43,16 @@ export function NetWorthChart({
 
   return (
     <View style={styles.container} onLayout={onLayout}>
-      <View style={styles.chartArea}>
+      <View style={[styles.chartArea, { height: chartHeight + 4 }]}>
         {[0, 1, 2, 3].map((line) => (
           <View key={line} style={[styles.gridLine, { top: line * (chartHeight / 3) }]} />
         ))}
-        <View style={styles.yLabels}>
+        <View style={[styles.yLabels, { height: chartHeight }]}>
           <ThemedText type="small" themeColor="textSecondary" style={Numeric}>{formatCurrencyCompact(max)}</ThemedText>
           <ThemedText type="small" themeColor="textSecondary" style={Numeric}>{formatCurrencyCompact((max + min) / 2)}</ThemedText>
           <ThemedText type="small" themeColor="textSecondary" style={Numeric}>{formatCurrencyCompact(min)}</ThemedText>
         </View>
-        <View style={[styles.plotArea, { backgroundColor: areaColor }]}>
+        <View style={[styles.plotArea, { height: chartHeight, backgroundColor: areaColor }]}>
           {points.slice(0, -1).map((point, index) => {
             const next = points[index + 1];
             const dx = next.x - point.x;

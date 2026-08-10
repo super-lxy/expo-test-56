@@ -68,7 +68,7 @@ export function useTransactionFormData(type: 'income' | 'expense') {
   const categoryRepository = useCategoryRepository();
   const accountRepository = useAccountRepository();
   const [categories, setCategories] = useState<Awaited<ReturnType<typeof categoryRepository.listByType>>>([]);
-  const [accounts, setAccounts] = useState<Awaited<ReturnType<typeof accountRepository.list>>>([]);
+  const [accounts, setAccounts] = useState<Awaited<ReturnType<typeof accountRepository.listWithBalances>>>([]);
 
   // useFocusEffect 而非 useEffect：从「新建分类 / 账户」页返回时要重新取数，
   // 否则刚创建的条目在本页看不到。
@@ -77,11 +77,11 @@ export function useTransactionFormData(type: 'income' | 'expense') {
       // 快速切换收支类型会连续触发本 effect，用取消标记丢弃过期结果，
       // 否则先发的请求可能后到并覆盖新数据。
       let cancelled = false;
-      void Promise.all([categoryRepository.listByType(type), accountRepository.list()]).then(
+      void Promise.all([categoryRepository.listByType(type), accountRepository.listWithBalances()]).then(
         ([nextCategories, nextAccounts]) => {
           if (cancelled) return;
           setCategories(nextCategories);
-          setAccounts(nextAccounts);
+          setAccounts(nextAccounts.filter((account) => account.status !== 'hidden'));
         }
       );
       return () => { cancelled = true; };

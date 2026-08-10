@@ -9,6 +9,8 @@ export type AccountTemplate = {
   color: string;
   /** 卡片副标题，说明用途 */
   hint: string;
+  /** 有账单周期的循环信贷类型，表单会多出账单日/还款日两栏 */
+  hasBillingCycle?: boolean;
 };
 
 export type TemplateGroup = {
@@ -31,9 +33,10 @@ export const TEMPLATE_GROUPS: TemplateGroup[] = [
       { id: 'shopping-card', label: '购物卡', type: 'shopping-card', kind: 'asset', icon: '🎫', color: '#EC4899', hint: '商场储值与礼品卡' },
       { id: 'housing-fund', label: '公积金', type: 'housing-fund', kind: 'asset', icon: '🏠', color: '#14B8A6', hint: '住房公积金账户余额' },
       { id: 'wallet', label: '其他钱包', type: 'wallet', kind: 'asset', icon: '👛', color: '#8B5CF6', hint: '其他电子钱包余额' },
-      { id: 'credit-card', label: '信用卡', type: 'credit-card', kind: 'liability', icon: '💳', color: '#EF4444', hint: '已用额度记为负债' },
-      { id: 'huabei', label: '花呗', type: 'huabei', kind: 'liability', icon: '🌸', color: '#1677FF', hint: '待还金额记为负债' },
-      { id: 'baitiao', label: '白条', type: 'baitiao', kind: 'liability', icon: '🧾', color: '#E1251B', hint: '京东白条待还' },
+      { id: 'credit-card', label: '信用卡', type: 'credit-card', kind: 'liability', icon: '💳', color: '#EF4444', hint: '已用额度记为负债', hasBillingCycle: true },
+      { id: 'huabei', label: '花呗', type: 'huabei', kind: 'liability', icon: '🌸', color: '#1677FF', hint: '待还金额记为负债', hasBillingCycle: true },
+      { id: 'baitiao', label: '白条', type: 'baitiao', kind: 'liability', icon: '🧾', color: '#E1251B', hint: '京东白条待还', hasBillingCycle: true },
+      { id: 'douyin-pay', label: '抖音月付', type: 'douyin-pay', kind: 'liability', icon: '🎵', color: '#161823', hint: '抖音月付待还', hasBillingCycle: true },
     ],
   },
   {

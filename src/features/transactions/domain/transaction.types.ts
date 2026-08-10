@@ -1,3 +1,5 @@
+import type { CategoryIconType } from '@/features/categories/domain/category.types';
+
 export type TransactionType = 'income' | 'expense' | 'transfer';
 
 export type Transaction = {
@@ -8,11 +10,14 @@ export type Transaction = {
   categoryName: string;
   parentCategoryName: string;
   categoryIcon: string;
+  categoryIconType: CategoryIconType;
   categoryColor: string;
   accountId: string;
   accountName: string;
   transferAccountId?: string;
   transferAccountName?: string;
+  feeCents: number;
+  discountCents: number;
   occurredAt: string;
   note: string;
 };
@@ -23,6 +28,8 @@ export type TransactionDraft = {
   categoryId: string;
   accountId: string;
   transferAccountId?: string;
+  feeCents?: number;
+  discountCents?: number;
   occurredAt: string;
   note: string;
 };

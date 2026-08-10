@@ -50,9 +50,9 @@ export function TransactionKeypad({
 }
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: '#EDEEF0', paddingHorizontal: 10, paddingTop: 8, paddingBottom: 8, gap: 5 },
-  row: { flexDirection: 'row', gap: 5 },
-  key: { flex: 1, height: 56, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
+  container: { backgroundColor: '#EFF0F2', paddingHorizontal: 9, paddingVertical: 7, gap: 4 },
+  row: { flexDirection: 'row', gap: 4 },
+  key: { flex: 1, height: 55, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
   saveKey: { backgroundColor: '#1C2128' },
   keyText: { ...Type.title, ...Numeric, color: '#2D3A45', fontWeight: FontWeight.regular },
   /**

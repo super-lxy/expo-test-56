@@ -3,17 +3,17 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 
 import { AccountRepository } from '../data/account.repository';
-import type { AccountBalance } from '../domain/account.types';
+import type { AccountBalance, AccountStatus } from '../domain/account.types';
 
 export function useAccounts() {
   const db = useSQLiteContext();
-  const [accounts, setAccounts] = useState<AccountBalance[]>([]);
+  const [allAccounts, setAllAccounts] = useState<AccountBalance[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      setAccounts(await new AccountRepository(db).listWithBalances());
+      setAllAccounts(await new AccountRepository(db).listWithBalances());
     } finally {
       setLoading(false);
     }
@@ -25,5 +25,13 @@ export function useAccounts() {
     }, [refresh])
   );
 
-  return { accounts, loading, refresh };
+  const accounts = allAccounts.filter((account) => account.status !== 'hidden');
+  const hiddenAccounts = allAccounts.filter((account) => account.status === 'hidden');
+
+  const updateAccountStatus = useCallback(async (id: string, status: AccountStatus) => {
+    await new AccountRepository(db).updateStatus(id, status);
+    await refresh();
+  }, [db, refresh]);
+
+  return { accounts, hiddenAccounts, allAccounts, loading, refresh, updateAccountStatus };
 }

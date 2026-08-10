@@ -2,46 +2,159 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { FontWeight, Glyph, Numeric, Type } from '@/constants/theme';
+import { CategoryIcon } from '@/features/categories/components/CategoryIcon';
 import type { Transaction } from '../domain/transaction.types';
 import { formatCurrency } from '@/shared/utils/currency';
 import { formatTime } from '@/shared/utils/date';
 
-export function TransactionItem({ transaction }: { transaction: Transaction }) {
+export function TransactionDayHeader({ label, isFirst = false }: { label: string; isFirst?: boolean }) {
+  return (
+    <View style={styles.dayHeader}>
+      <View style={styles.timelineRail}>
+        {!isFirst ? <View style={[styles.timelineLine, styles.timelineLineTop]} /> : null}
+        <View style={[styles.timelineLine, styles.timelineLineBottom]} />
+        <View style={styles.dayDot} />
+      </View>
+      <View style={styles.dayLabelRow}>
+        <ThemedText style={styles.dayLabel}>{label}</ThemedText>
+      </View>
+    </View>
+  );
+}
+
+export function TransactionItem({
+  transaction,
+  isFirst = false,
+  isLast = false,
+}: {
+  transaction: Transaction;
+  isFirst?: boolean;
+  isLast?: boolean;
+}) {
   const isIncome = transaction.type === 'income';
   const isTransfer = transaction.type === 'transfer';
-  const color = isTransfer ? '#71808C' : isIncome ? '#167C80' : '#E06B52';
+  const isInitialBalance = transaction.categoryId === 'initial-balance';
+  const isInternalTransfer = isTransfer || isInitialBalance;
+  const color = isInternalTransfer ? '#17212B' : isIncome ? '#167C80' : '#E06B52';
+  const accentColor = isInternalTransfer
+    ? '#5B7184'
+    : transaction.categoryColor;
+  const cardBackground = '#FFFFFF';
+  const cardBorderColor = '#E2E6E9';
+  const iconBackground = '#F1F3F4';
+  const title = isInternalTransfer
+    ? '内部转账'
+    : transaction.categoryName;
+  const subtitle = (() => {
+    if (isInitialBalance) {
+      return `【资产初始化】初始余额 ${formatCurrency(transaction.amountCents)} · ${transaction.accountName}`;
+    }
+    if (isTransfer) {
+      return [
+        `${transaction.accountName} → ${transaction.transferAccountName ?? '账户'}`,
+        transaction.feeCents > 0 ? `手续费 ${formatCurrency(transaction.feeCents)}` : '',
+        transaction.discountCents > 0 ? `优惠 ${formatCurrency(transaction.discountCents)}` : '',
+        transaction.note,
+      ].filter(Boolean).join(' · ');
+    }
+    const duplicateLabels = new Set([title, transaction.categoryName]);
+    return [transaction.accountName, transaction.parentCategoryName, transaction.note]
+      .map((value) => value?.trim())
+      .filter((value): value is string => Boolean(value) && !duplicateLabels.has(value))
+      .filter((value, index, values) => values.indexOf(value) === index)
+      .join(' · ');
+  })();
 
   return (
-    <Pressable style={({ pressed }) => [styles.container, pressed && styles.pressed]}>
-      <View style={[styles.icon, { backgroundColor: `${transaction.categoryColor}22` }]}>
-        <ThemedText style={styles.iconText}>{transaction.categoryIcon}</ThemedText>
-      </View>
-      <View style={styles.details}>
-        <ThemedText style={styles.category}>
-          {isTransfer ? `${transaction.accountName} → ${transaction.transferAccountName ?? '账户'}` : transaction.categoryName}
-        </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-          {[transaction.accountName, transaction.parentCategoryName, transaction.categoryName, transaction.note].filter(Boolean).join(' · ')}
-        </ThemedText>
-      </View>
-      <View style={styles.amountCol}>
-        <ThemedText style={[styles.amount, { color }]}>
-          {isTransfer ? '' : isIncome ? '+' : '-'}{formatCurrency(transaction.amountCents)}
-        </ThemedText>
-        <ThemedText style={styles.time}>{formatTime(transaction.occurredAt)}</ThemedText>
-      </View>
+    <Pressable style={styles.container}>
+      {({ pressed }) => (
+        <>
+          <View style={styles.timelineRail}>
+            {!isFirst ? <View style={[styles.timelineLine, styles.timelineLineTop]} /> : null}
+            {!isLast ? <View style={[styles.timelineLine, styles.timelineLineBottom]} /> : null}
+            <View style={[styles.timelineDot, { backgroundColor: accentColor }]} />
+          </View>
+          <View style={styles.eventContent}>
+            <View style={[
+              styles.details,
+              { backgroundColor: cardBackground, borderColor: cardBorderColor },
+              pressed && styles.detailsPressed,
+            ]}>
+              <View style={[
+                styles.cardTail,
+                { backgroundColor: cardBackground, borderColor: cardBorderColor },
+                pressed && styles.cardTailPressed,
+              ]} />
+              <View style={[styles.icon, { backgroundColor: iconBackground }]}>
+                <CategoryIcon
+                  icon={transaction.categoryIcon}
+                  iconType={transaction.categoryIconType}
+                  imageSize={28}
+                  textStyle={styles.iconText}
+                />
+              </View>
+              <View style={styles.copy}>
+                <ThemedText style={styles.category} numberOfLines={1}>{title}</ThemedText>
+                {subtitle ? (
+                  <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+                    {subtitle}
+                  </ThemedText>
+                ) : null}
+              </View>
+              <View style={styles.amountCol}>
+                <ThemedText style={[styles.amount, { color }]} numberOfLines={1}>
+                  {isInternalTransfer ? '' : isIncome ? '+' : '-'}{formatCurrency(transaction.amountCents)}
+                </ThemedText>
+                <ThemedText style={styles.time}>{formatTime(transaction.occurredAt)}</ThemedText>
+              </View>
+            </View>
+          </View>
+        </>
+      )}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 10, borderBottomWidth: 1, borderBottomColor: '#F0F1F2' },
-  pressed: { opacity: 0.65 },
-  icon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  iconText: { ...Glyph.md },
-  details: { flex: 1, gap: 3 },
+  dayHeader: { minHeight: 36, flexDirection: 'row', alignItems: 'stretch' },
+  dayLabelRow: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center' },
+  dayLabel: { ...Type.body, color: '#59636C', fontWeight: FontWeight.semibold, fontStyle: 'italic', paddingLeft: 8 },
+  dayDot: { zIndex: 1, width: 7, height: 7, borderRadius: 4, backgroundColor: '#92A0AD', borderWidth: 1, borderColor: '#FFFFFF' },
+  container: { minHeight: 64, flexDirection: 'row', alignItems: 'stretch' },
+  time: { ...Type.caption, ...Numeric, color: '#8E979F', fontWeight: FontWeight.medium, flexShrink: 0 },
+  timelineRail: { width: 18, alignItems: 'center', justifyContent: 'center' },
+  timelineLine: { position: 'absolute', left: 8.5, borderLeftWidth: 1, borderStyle: 'dashed', borderLeftColor: '#D8DDE2' },
+  timelineLineTop: { top: 0, height: '50%' },
+  timelineLineBottom: { top: '50%', bottom: 0 },
+  timelineDot: { zIndex: 1, width: 8, height: 8, borderRadius: 4, borderWidth: 2, borderColor: '#FFFFFF' },
+  eventContent: { flex: 1, minWidth: 0, position: 'relative', justifyContent: 'center' },
+  icon: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  iconText: { ...Glyph.sm },
+  details: {
+    minWidth: 0,
+    justifyContent: 'center',
+    gap: 8,
+    minHeight: 54,
+    zIndex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 3,
+    marginVertical: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 13,
+    borderWidth: 1,
+    shadowColor: '#637083',
+    shadowOpacity: 0.05,
+    shadowRadius: 7,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 1,
+  },
+  detailsPressed: { backgroundColor: '#EEF2F3', borderColor: '#D3DCE0', shadowOpacity: 0.02 },
+  cardTail: { position: 'absolute', left: -6, top: '50%', marginTop: -6, width: 12, height: 12, borderLeftWidth: 1, borderBottomWidth: 1, transform: [{ rotate: '45deg' }] },
+  cardTailPressed: { backgroundColor: '#EEF2F3', borderColor: '#D3DCE0' },
+  copy: { flex: 1, minWidth: 0, gap: 2 },
+  amountCol: { flexShrink: 0, alignItems: 'flex-end', justifyContent: 'center', gap: 2 },
   category: { ...Type.body, fontWeight: FontWeight.semibold },
-  amountCol: { alignItems: 'flex-end', gap: 3 },
-  amount: { ...Type.body, ...Numeric, fontWeight: FontWeight.semibold },
-  time: { ...Type.caption, ...Numeric, color: '#A0AAB4' },
+  amount: { flexShrink: 0, ...Type.body, ...Numeric, fontWeight: FontWeight.semibold, textAlign: 'right' },
 });

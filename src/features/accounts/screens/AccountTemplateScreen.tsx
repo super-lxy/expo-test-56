@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,35 +19,44 @@ export function AccountTemplateScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={10}>
-            <ThemedText style={styles.back}>‹</ThemedText>
+          <Pressable
+            onPress={() => router.back()}
+            style={styles.backButton}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="返回">
+            <SymbolView
+              name={{ ios: 'chevron.left', android: 'arrow_back_ios_new', web: 'arrow_back_ios_new' }}
+              size={24}
+              tintColor="#17212B"
+            />
           </Pressable>
-          <ThemedText style={styles.title}>选择账户类型</ThemedText>
-          <View style={styles.headerSpacer} />
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.tabBarWrap}
+            contentContainerStyle={styles.tabBar}>
+            {TEMPLATE_GROUPS.map((group) => (
+              <Pressable
+                key={group.key}
+                onPress={() => setActiveKey(group.key)}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: activeKey === group.key }}
+                style={[styles.tab, activeKey === group.key && styles.tabActive]}>
+                <ThemedText style={[styles.tabText, activeKey === group.key && styles.tabTextActive]}>
+                  {group.label}
+                </ThemedText>
+              </Pressable>
+            ))}
+          </ScrollView>
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.tabBarWrap}
-          contentContainerStyle={styles.tabBar}>
-          {TEMPLATE_GROUPS.map((group) => (
-            <Pressable
-              key={group.key}
-              onPress={() => setActiveKey(group.key)}
-              style={[styles.tab, activeKey === group.key && styles.tabActive]}>
-              <ThemedText style={[styles.tabText, activeKey === group.key && styles.tabTextActive]}>
-                {group.label}
-              </ThemedText>
-            </Pressable>
-          ))}
-        </ScrollView>
-
         <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-          {activeGroup.templates.map((template) => (
+          {activeGroup.templates.map((template, index) => (
             <AccountTemplateCard
               key={template.id}
               template={template}
+              index={index}
               onPress={() => router.push({ pathname: '/accounts/new', params: { templateId: template.id } })}
             />
           ))}
@@ -59,17 +69,13 @@ export function AccountTemplateScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1 },
-  header: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12 },
-  back: { fontSize: 32, lineHeight: 34, fontWeight: FontWeight.regular, color: '#17212B' },
-  title: { ...Type.headline, fontWeight: FontWeight.semibold },
-  headerSpacer: { width: 22 },
-  // flexGrow: 0 —— 否则横向 ScrollView 会抢占剩余垂直空间，把 tab 拉成竖条
-  tabBarWrap: { flexGrow: 0, flexShrink: 0 },
-  // alignItems: center —— 否则 row 容器默认 stretch，pill 会撑满整个高度
-  tabBar: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 12, paddingBottom: 10 },
-  tab: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F0F2F4' },
-  tabActive: { backgroundColor: '#1C2128' },
+  header: { minHeight: 58, position: 'relative', flexDirection: 'row', alignItems: 'center', paddingBottom: 8 },
+  backButton: { position: 'absolute', left: 8, zIndex: 2, width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  tabBarWrap: { flex: 1 },
+  tabBar: { flexGrow: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingHorizontal: 50 },
+  tab: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 15 },
+  tabActive: { backgroundColor: '#303647' },
   tabText: { ...Type.subhead, fontWeight: FontWeight.semibold, color: '#71808C' },
   tabTextActive: { color: '#FFFFFF' },
-  list: { paddingHorizontal: 12, paddingBottom: 40, gap: 8 },
+  list: { paddingHorizontal: 18, paddingTop: 4, paddingBottom: 30, gap: 10 },
 });

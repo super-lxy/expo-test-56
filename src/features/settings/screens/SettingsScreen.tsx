@@ -21,10 +21,6 @@ export function SettingsScreen() {
             <ThemedText style={styles.cardTitle}>本地账本</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">数据保存在当前设备，后续将加入导入导出功能。</ThemedText>
           </View>
-          <Pressable onPress={() => router.push('/accounts')} style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
-            <ThemedText style={styles.cardTitle}>账户管理</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">管理微信、支付宝、银行卡和现金账户</ThemedText>
-          </Pressable>
           <Pressable onPress={() => router.push('/categories')} style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
             <ThemedText style={styles.cardTitle}>分类管理</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">自定义大分类和具体用途</ThemedText>

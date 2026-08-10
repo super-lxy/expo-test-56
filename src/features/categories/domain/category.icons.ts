@@ -209,20 +209,6 @@ const KEYWORD_ICONS: readonly (readonly [string, readonly string[]])[] = [
 const ALL_ICONS = ICON_GROUPS.flatMap((group) => group.icons);
 
 /**
- * 取分类名首字作为图标（「文字作为图标」开关）。
- * 中文取一个字，英文/数字取前两位 —— 单个拉丁字母在 44px 的格子里太空。
- * 用 Array.from 而非 charAt，避免把 emoji / 代理对切成半个字符。
- */
-export function textIcon(name: string): string {
-  const chars = Array.from(name.trim());
-  if (chars.length === 0) return '';
-  if (/[a-zA-Z0-9]/.test(chars[0])) {
-    return chars.slice(0, 2).join('');
-  }
-  return chars[0];
-}
-
-/**
  * 按分类名推荐图标。命中多个关键词时按出现顺序合并去重。
  * 没有命中时回退到父级图标（若提供）+ 常用兜底，保证推荐区不为空。
  */

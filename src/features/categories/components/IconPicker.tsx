@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
   tabTextActive: { color: '#FFFFFF', fontWeight: FontWeight.semibold },
   grid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 10, marginTop: 14 },
   cell: { width: `${100 / COLUMNS}%`, alignItems: 'center' },
-  cellInner: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#F4F5F4', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: 'transparent' },
+  cellInner: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#F1F3F4', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: 'transparent' },
   cellInnerSelected: { backgroundColor: '#DDF3F0', borderColor: '#167C80' },
   icon: { ...Glyph.lg },
 });

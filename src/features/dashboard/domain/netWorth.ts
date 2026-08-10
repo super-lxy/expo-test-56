@@ -1,6 +1,24 @@
 import type { AccountBalance } from '@/features/accounts/domain/account.types';
 import type { Transaction } from '@/features/transactions/domain/transaction.types';
 
+function getTransactionNetChange(transaction: Transaction, includedAccountIds: Set<string>) {
+  const sourceIncluded = includedAccountIds.has(transaction.accountId);
+
+  if (transaction.type === 'income') {
+    return sourceIncluded ? transaction.amountCents : 0;
+  }
+  if (transaction.type === 'expense') {
+    return sourceIncluded ? -transaction.amountCents : 0;
+  }
+
+  const targetIncluded = transaction.transferAccountId
+    ? includedAccountIds.has(transaction.transferAccountId)
+    : false;
+  const transferredOut = transaction.amountCents + transaction.feeCents - transaction.discountCents;
+
+  return (sourceIncluded ? -transferredOut : 0) + (targetIncluded ? transaction.amountCents : 0);
+}
+
 /** 按时间段采样，返回均匀分布的净资产数据点和 X 轴标签 */
 export function buildNetWorthByPeriod(
   accounts: AccountBalance[],
@@ -15,7 +33,13 @@ export function buildNetWorthByPeriod(
     0,
   );
 
-  const sorted = [...transactions].sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
+  const includedAccountIds = new Set(accounts.map((account) => account.id));
+  const sorted = transactions
+    .filter((transaction) => (
+      includedAccountIds.has(transaction.accountId)
+      || Boolean(transaction.transferAccountId && includedAccountIds.has(transaction.transferAccountId))
+    ))
+    .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
 
   const SAMPLES = 20;
   const values: number[] = [];
@@ -28,8 +52,7 @@ export function buildNetWorthByPeriod(
     let balance = initialBalance;
     for (const tx of sorted) {
       if (tx.occurredAt > sampleISO) break;
-      if (tx.type === 'income') balance += tx.amountCents;
-      else if (tx.type === 'expense') balance -= tx.amountCents;
+      balance += getTransactionNetChange(tx, includedAccountIds);
     }
     values.push(balance);
 
@@ -53,9 +76,16 @@ export function buildNetWorthTrend(accounts: AccountBalance[], transactions: Tra
   );
   const values = [balance];
 
-  for (const transaction of [...transactions].sort((a, b) => a.occurredAt.localeCompare(b.occurredAt))) {
-    if (transaction.type === 'income') balance += transaction.amountCents;
-    else if (transaction.type === 'expense') balance -= transaction.amountCents;
+  const includedAccountIds = new Set(accounts.map((account) => account.id));
+  const includedTransactions = transactions
+    .filter((transaction) => (
+      includedAccountIds.has(transaction.accountId)
+      || Boolean(transaction.transferAccountId && includedAccountIds.has(transaction.transferAccountId))
+    ))
+    .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
+
+  for (const transaction of includedTransactions) {
+    balance += getTransactionNetChange(transaction, includedAccountIds);
     values.push(balance);
   }
 

@@ -7,33 +7,24 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { FontWeight, Glyph, Numeric, Spacing, Type } from '@/constants/theme';
 import { useAccounts } from '@/features/accounts/hooks/useAccounts';
-import { NetWorthChart } from '@/features/dashboard/components/NetWorthChart';
-import { buildNetWorthByPeriod } from '@/features/dashboard/domain/netWorth';
-import { TransactionItem } from '@/features/transactions/components/TransactionItem';
+import { TransactionDayHeader, TransactionItem } from '@/features/transactions/components/TransactionItem';
 import { useMonthlySummary, useTransactions, useTotalSummary } from '@/features/transactions/hooks/useTransactions';
 import { formatCurrency } from '@/shared/utils/currency';
 import { dateKey, formatDayGroup, formatMonth } from '@/shared/utils/date';
-
-const PERIODS = [
-  { label: '1月', days: 30 },
-  { label: '3月', days: 90 },
-  { label: '半年', days: 180 },
-  { label: '1年', days: 365 },
-] as const;
 
 type HomeView = 'overview' | 'calendar';
 
 export function DashboardScreen() {
   const [view, setView] = useState<HomeView>('overview');
-  const [chartDays, setChartDays] = useState(180);
   const { summary } = useMonthlySummary();
   const { transactions } = useTransactions();
   const { accounts } = useAccounts();
   const totalSummary = useTotalSummary();
-  const totalAssets = accounts.filter((a) => a.kind !== 'liability').reduce((sum, a) => sum + a.balanceCents, 0);
-  const liabilities = accounts.filter((a) => a.kind === 'liability').reduce((sum, a) => sum + Math.abs(a.balanceCents), 0);
+  const netWorthAccounts = accounts.filter((account) => account.includeInNetWorth);
+  const totalAssets = netWorthAccounts.filter((a) => a.kind !== 'liability').reduce((sum, a) => sum + a.balanceCents, 0);
+  const liabilities = netWorthAccounts.filter((a) => a.kind === 'liability').reduce((sum, a) => sum + Math.abs(a.balanceCents), 0);
+  const netWorth = totalAssets - liabilities;
   const monthlyChange = summary.incomeCents - summary.expenseCents;
-  const { values: chartValues, xLabels: chartLabels } = buildNetWorthByPeriod(accounts, transactions, chartDays);
   const onScroll = useHideTabBarOnScroll();
   const groups = transactions.slice(0, 8).reduce<{ key: string; label: string; items: typeof transactions }[]>((result, transaction) => {
     const key = dateKey(transaction.occurredAt);
@@ -72,7 +63,7 @@ export function DashboardScreen() {
               <View style={styles.summaryCard}>
                 <ThemedText style={styles.ledgerName}>我的演示账本</ThemedText>
                 <View style={styles.summaryHeader}>
-                  <ThemedText style={styles.totalAssets}>{formatCurrency(totalAssets)}</ThemedText>
+                  <ThemedText style={styles.totalAssets}>{formatCurrency(netWorth)}</ThemedText>
                   <ThemedText style={[styles.changeText, { color: monthlyChange >= 0 ? '#2D9D6A' : '#D96C55' }]}>
                     {monthlyChange >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(monthlyChange))}
                   </ThemedText>
@@ -95,29 +86,22 @@ export function DashboardScreen() {
                 </View>
               </View>
 
-              <View style={styles.chartCard}>
-                <View style={styles.cardTitleRow}>
-                  <ThemedText style={styles.cardTitle}>净资产变化</ThemedText>
-                  <View style={styles.periodSelector}>
-                    {PERIODS.map((p) => (
-                      <Pressable key={p.days} onPress={() => setChartDays(p.days)} style={[styles.periodBtn, chartDays === p.days && styles.periodBtnActive]}>
-                        <ThemedText style={[styles.periodText, chartDays === p.days && styles.periodTextActive]}>{p.label}</ThemedText>
-                      </Pressable>
-                    ))}
-                  </View>
-                </View>
-                <NetWorthChart values={chartValues} xLabels={chartLabels} />
-              </View>
-
               <View style={styles.transactionCard}>
                 <View style={styles.monthHeader}>
                   <ThemedText style={styles.monthTitle}>{formatMonth()}</ThemedText>
                 </View>
                 <View style={styles.transactionDivider} />
-                {groups.length > 0 ? groups.map((group) => (
+                {groups.length > 0 ? groups.map((group, groupIndex) => (
                   <View key={group.key} style={styles.dayGroup}>
-                    <ThemedText style={styles.dayText}>{group.label}</ThemedText>
-                    {group.items.map((transaction) => <TransactionItem key={transaction.id} transaction={transaction} />)}
+                    <TransactionDayHeader label={group.label} isFirst={groupIndex === 0} />
+                    {group.items.map((transaction, index) => (
+                      <TransactionItem
+                        key={transaction.id}
+                        transaction={transaction}
+                        isFirst={false}
+                        isLast={groupIndex === groups.length - 1 && index === group.items.length - 1}
+                      />
+                    ))}
                   </View>
                 )) : (
                   <View style={styles.emptyState}>
@@ -166,21 +150,12 @@ const styles = StyleSheet.create({
   metric: { flex: 1, gap: 3 },
   metricAmount: { ...Type.headline, ...Numeric, fontWeight: FontWeight.semibold, color: '#252B31' },
   metricDivider: { width: 1, backgroundColor: '#ECEDEF', marginHorizontal: 10 },
-  chartCard: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 13, gap: 9, borderWidth: 1, borderColor: '#ECEDEF', shadowColor: '#5F6870', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
-  cardTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  cardTitle: { ...Type.headline, fontWeight: FontWeight.semibold },
-  periodSelector: { flexDirection: 'row', gap: 4 },
-  periodBtn: { paddingHorizontal: 7, paddingVertical: 4, borderRadius: 9, backgroundColor: '#F0F2F4' },
-  periodBtnActive: { backgroundColor: '#1C2128' },
-  periodText: { ...Type.caption, fontWeight: FontWeight.semibold, color: '#71808C' },
-  periodTextActive: { color: '#FFFFFF' },
-  transactionCard: { backgroundColor: '#FFFFFF', borderRadius: 18, paddingHorizontal: 12, paddingTop: 12, paddingBottom: 5, borderWidth: 1, borderColor: '#ECEDEF' },
-  monthHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  transactionCard: { paddingTop: 5, paddingBottom: 2 },
+  monthHeader: { paddingHorizontal: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   monthTitle: { ...Type.headline, fontWeight: FontWeight.semibold },
-  transactionDivider: { height: 1, backgroundColor: '#ECEDEF', marginTop: 12 },
+  transactionDivider: { height: 1, backgroundColor: '#E5E8EB', marginTop: 9, marginBottom: 4 },
   dayHeader: { paddingTop: 11, paddingBottom: 3 },
-  dayText: { ...Type.footnote, color: '#818990', fontWeight: FontWeight.semibold },
-  dayGroup: { marginBottom: 8 },
+  dayGroup: { marginBottom: 0 },
   emptyState: { alignItems: 'center', paddingVertical: Spacing.five, gap: Spacing.one },
   emptyIcon: { ...Glyph.xxl },
   emptyTitle: { ...Type.headline, fontWeight: FontWeight.semibold },

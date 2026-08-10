@@ -5,7 +5,7 @@ import { useHideTabBarOnScroll } from '@/hooks/use-hide-tab-bar-on-scroll';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { FontWeight, Glyph, Spacing, Type } from '@/constants/theme';
-import { TransactionItem } from '../components/TransactionItem';
+import { TransactionDayHeader, TransactionItem } from '../components/TransactionItem';
 import { useTransactions } from '../hooks/useTransactions';
 import { dateKey, formatDayGroup } from '@/shared/utils/date';
 
@@ -30,10 +30,17 @@ export function TransactionListScreen() {
           </ThemedText>
         </View>
         <ScrollView contentContainerStyle={transactions.length === 0 ? styles.emptyList : styles.list} showsVerticalScrollIndicator={false} onScroll={onScroll} scrollEventThrottle={16}>
-          {groups.map((group) => (
+          {groups.map((group, groupIndex) => (
             <View key={group.key} style={styles.group}>
-              <ThemedText style={styles.dayTitle}>{group.label}</ThemedText>
-              {group.items.map((item) => <TransactionItem key={item.id} transaction={item} />)}
+              <TransactionDayHeader label={group.label} isFirst={groupIndex === 0} />
+              {group.items.map((item, index) => (
+                <TransactionItem
+                  key={item.id}
+                  transaction={item}
+                  isFirst={false}
+                  isLast={groupIndex === groups.length - 1 && index === group.items.length - 1}
+                />
+              ))}
             </View>
           ))}
           {transactions.length === 0 ? (
@@ -54,8 +61,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   header: { paddingHorizontal: Spacing.three, paddingTop: Spacing.two, paddingBottom: Spacing.three, gap: 5 },
   list: { paddingHorizontal: Spacing.three, paddingBottom: 120 },
-  group: { marginBottom: 16 },
-  dayTitle: { ...Type.footnote, color: '#818990', fontWeight: FontWeight.semibold, marginBottom: 4 },
+  group: { marginBottom: 0 },
   emptyList: { flexGrow: 1, padding: Spacing.three },
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.one },
   emptyIcon: { ...Glyph.xxl },

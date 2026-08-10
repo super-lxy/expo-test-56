@@ -1,11 +1,24 @@
+import { Asset } from 'expo-asset';
+import { File } from 'expo-file-system';
 import type { SQLiteDatabase } from 'expo-sqlite';
+import { Platform } from 'react-native';
+
+import {
+  DEFAULT_EXPENSE_CATEGORIES,
+  DEFAULT_EXPENSE_ROOT_RENAMES,
+  DEFAULT_EXPENSE_ROOTS,
+  LEGACY_EXPENSE_CATEGORY_IDS,
+  LEGACY_EXPENSE_ROOT_IDS,
+} from './defaultExpenseCategories';
 
 export const DATABASE_NAME = 'ledger.db';
+const internalTransferIconAsset = require('../../../assets/images/system/internal-transfer.png');
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
-  const DATABASE_VERSION = 5;
+  const DATABASE_VERSION = 15;
   const versionRow = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
   let currentVersion = versionRow?.user_version ?? 0;
+  const isNewDatabase = currentVersion === 0;
 
   if (currentVersion >= DATABASE_VERSION) {
     return;
@@ -16,18 +29,82 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     await addColumnIfMissing(db, 'transactions', 'transfer_account_id TEXT');
   }
 
-  // v5：账户增加 资产/负债 分类和图标
   if (currentVersion > 0 && currentVersion < 5) {
     await addColumnIfMissing(db, 'accounts', "kind TEXT NOT NULL DEFAULT 'asset'");
     await addColumnIfMissing(db, 'accounts', "icon TEXT NOT NULL DEFAULT '💰'");
     await addColumnIfMissing(db, 'accounts', "color TEXT NOT NULL DEFAULT '#64748B'");
-    // 负债的金额统一以正数存储（欠款额），kind 决定加减方向
     await db.runAsync(
-      `UPDATE accounts
-       SET kind = 'liability', initial_balance_cents = ABS(initial_balance_cents)
-       WHERE type = 'credit-card'`
+      `UPDATE accounts SET kind = 'liability', initial_balance_cents = ABS(initial_balance_cents) WHERE type = 'credit-card'`
     );
     await db.runAsync(`UPDATE accounts SET icon = '💵', color = '#22C55E' WHERE type = 'cash' AND icon = '💰'`);
+  }
+
+  if (currentVersion > 0 && currentVersion < 6) {
+    await addColumnIfMissing(db, 'accounts', 'statement_day INTEGER');
+    await addColumnIfMissing(db, 'accounts', 'due_day INTEGER');
+  }
+
+  // v7：信用额度、资产状态、是否计入净资产
+  if (currentVersion > 0 && currentVersion < 7) {
+    await addColumnIfMissing(db, 'accounts', 'credit_limit_cents INTEGER');
+    await addColumnIfMissing(db, 'accounts', "status TEXT NOT NULL DEFAULT 'active'");
+    await addColumnIfMissing(db, 'accounts', 'include_in_net_worth INTEGER NOT NULL DEFAULT 1');
+  }
+
+  // v8：旧版创建账户时同时保存初始余额和初始调整账单，导致余额被重复计算。
+  // 对已经存在对应调整账单的账户，将基准初始余额归零，只保留账单作为余额来源。
+  if (currentVersion > 0 && currentVersion < 8) {
+    await db.runAsync(`
+      UPDATE accounts
+      SET initial_balance_cents = 0
+      WHERE initial_balance_cents != 0
+        AND EXISTS (
+          SELECT 1
+          FROM transactions
+          WHERE transactions.account_id = accounts.id
+            AND transactions.category_id = 'initial-balance'
+            AND transactions.amount_cents = ABS(accounts.initial_balance_cents)
+            AND transactions.deleted_at IS NULL
+        )
+    `);
+  }
+
+  // v9：转账支持手续费与优惠，影响转出账户的实际扣款。
+  if (currentVersion > 0 && currentVersion < 9) {
+    await addColumnIfMissing(db, 'transactions', 'fee_cents INTEGER NOT NULL DEFAULT 0');
+    await addColumnIfMissing(db, 'transactions', 'discount_cents INTEGER NOT NULL DEFAULT 0');
+  }
+
+  // v10：分类图标支持 Emoji 与用户上传图片两种类型。
+  if (currentVersion > 0 && currentVersion < 10) {
+    await addColumnIfMissing(db, 'categories', "icon_type TEXT NOT NULL DEFAULT 'emoji'");
+  }
+
+  // v11：自定义分类图片直接保存在 SQLite BLOB 中，迁移数据库即可完整带走图标。
+  if (currentVersion > 0 && currentVersion < 11) {
+    await addColumnIfMissing(db, 'categories', 'icon_blob BLOB');
+    await addColumnIfMissing(db, 'categories', 'icon_mime TEXT');
+    await migrateLegacyCategoryIcons(db);
+  }
+
+  // v12：初始化与账户转账统一为隐藏的「内部转账」系统分类。
+  if (currentVersion > 0 && currentVersion < 12) {
+    await db.runAsync(
+      `UPDATE categories
+       SET name = '内部转账', type = 'transfer', icon = '↔️', icon_type = 'emoji',
+           icon_blob = NULL, icon_mime = NULL
+       WHERE id IN ('transfer', 'initial-balance')`
+    );
+    await db.runAsync(
+      `UPDATE transactions
+       SET note = '资产初始化'
+       WHERE category_id = 'initial-balance' AND note = '初始余额'`
+    );
+  }
+
+  // v14：启用新版支出分类体系，旧分类仅退出选择菜单，历史账单继续保留关联。
+  if (currentVersion > 0 && currentVersion < 14) {
+    await addColumnIfMissing(db, 'categories', 'is_archived INTEGER NOT NULL DEFAULT 0');
   }
 
   await db.execAsync(`
@@ -43,6 +120,11 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       color TEXT NOT NULL DEFAULT '#64748B',
       initial_balance_cents INTEGER NOT NULL DEFAULT 0,
       currency TEXT NOT NULL DEFAULT 'CNY',
+      credit_limit_cents INTEGER,
+      statement_day INTEGER,
+      due_day INTEGER,
+      status TEXT NOT NULL DEFAULT 'active',
+      include_in_net_worth INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL
     );
 
@@ -52,8 +134,12 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       type TEXT NOT NULL,
       parent_id TEXT,
       icon TEXT NOT NULL,
+      icon_type TEXT NOT NULL DEFAULT 'emoji',
+      icon_blob BLOB,
+      icon_mime TEXT,
       color TEXT NOT NULL,
       sort_order INTEGER NOT NULL DEFAULT 0,
+      is_archived INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL
     );
 
@@ -64,6 +150,8 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       category_id TEXT NOT NULL,
       account_id TEXT NOT NULL,
       transfer_account_id TEXT,
+      fee_cents INTEGER NOT NULL DEFAULT 0,
+      discount_cents INTEGER NOT NULL DEFAULT 0,
       occurred_at TEXT NOT NULL,
       note TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL,
@@ -80,75 +168,214 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   `);
 
   const now = new Date().toISOString();
-  await db.runAsync(
-    `INSERT OR IGNORE INTO accounts (id, name, type, kind, icon, color, initial_balance_cents, currency, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    'cash',
-    '现金',
-    'cash',
-    'asset',
-    '💵',
-    '#22C55E',
-    0,
-    'CNY',
-    now
-  );
 
-  const categories = [
-    ['food', '餐饮', 'expense', null, '🍜', '#F97316', 1],
-    ['transport', '交通', 'expense', null, '🚕', '#3B82F6', 2],
-    ['shopping', '购物', 'expense', null, '🛍️', '#EC4899', 3],
-    ['entertainment', '娱乐', 'expense', null, '🎮', '#8B5CF6', 4],
-    ['housing', '住宿', 'expense', null, '🏠', '#14B8A6', 5],
-    ['daily', '日常', 'expense', null, '📦', '#64748B', 6],
-    ['relationships', '人情', 'expense', null, '❤️', '#F97316', 7],
-    ['travel', '旅游', 'expense', null, '🎫', '#8B5CF6', 8],
-    ['medical', '医疗', 'expense', null, '🏥', '#06B6D4', 9],
-    ['membership', '会员/通讯', 'expense', null, '♛', '#EAB308', 10],
-    ['salary', '工资', 'income', null, '💰', '#22C55E', 20],
-    ['bonus', '奖金', 'income', null, '🎁', '#EAB308', 21],
-    ['other-income', '其他收入', 'income', null, '✨', '#06B6D4', 22],
-    ['transfer', '账户转账', 'transfer', null, '↔️', '#64748B', 99],
-    ['flight', '飞机', 'expense', 'transport', '✈️', '#3B82F6', 30],
-    ['subway', '地铁', 'expense', 'transport', '🚇', '#3B82F6', 31],
-    ['bus', '公交', 'expense', 'transport', '🚌', '#3B82F6', 32],
-    ['taxi', '打车', 'expense', 'transport', '🚕', '#3B82F6', 33],
-    ['fuel', '加油', 'expense', 'transport', '⛽', '#3B82F6', 34],
-  ] as const;
+  // 用户迁移的是数据库的最终状态。默认账户和普通分类只在首次建库时写入，
+  // 后续版本升级不能把用户已经删除的默认内容重新创建出来。
+  if (isNewDatabase) {
+    await db.runAsync(
+       `INSERT OR IGNORE INTO accounts
+       (id, name, type, kind, icon, color, initial_balance_cents, currency, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      'cash', '现金', 'cash', 'asset', '💵', '#22C55E', 0, 'CNY', now
+    );
 
-  for (const [id, name, type, parentId, icon, color, sortOrder] of categories) {
+    const incomeCategories = [
+      ['salary', '工资', 'income', null, '💰', '#22C55E', 20],
+      ['bonus', '奖金', 'income', null, '🎁', '#EAB308', 21],
+      ['other-income', '其他收入', 'income', null, '✨', '#06B6D4', 22],
+    ] as const;
+
+    for (const [id, name, type, parentId, icon, color, sortOrder] of incomeCategories) {
+      await db.runAsync(
+        `INSERT OR IGNORE INTO categories
+         (id, name, type, parent_id, icon, color, sort_order, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        id, name, type, parentId, icon, color, sortOrder, now
+      );
+    }
+  }
+
+  if (currentVersion < 14) {
+    if (!isNewDatabase) {
+      await archiveLegacyExpenseCategories(db);
+    }
+    await seedDefaultExpenseCategories(db, now);
+    if (!isNewDatabase) {
+      await reparentLegacyCustomCategories(db);
+    }
+  }
+
+  // v15：恢复一级分类的同名默认子分类、缩短一级名称，并更新「教育」内置图片。
+  if (currentVersion < 15) {
+    await seedDefaultExpenseCategories(db, now);
+    await renameDefaultExpenseRoots(db);
+    await persistDefaultExpenseCategoryIcons(db, currentVersion === 14);
+  }
+
+  // 隐藏系统分类属于账单数据结构，不在用户分类菜单中，也不允许用户删除。
+  await ensureSystemCategories(db, now);
+  await persistInternalTransferIcon(db);
+
+  if (isNewDatabase || currentVersion < 4) {
+    await addDefaultSubcategories(db);
+  }
+
+  currentVersion = 15;
+
+  await db.execAsync(`PRAGMA user_version = ${currentVersion}`);
+}
+
+async function renameDefaultExpenseRoots(db: SQLiteDatabase) {
+  for (const [id, previousName, nextName] of DEFAULT_EXPENSE_ROOT_RENAMES) {
+    await db.runAsync(
+      `UPDATE categories SET name = ? WHERE id = ? AND name = ?`,
+      nextName,
+      id,
+      previousName
+    );
+  }
+}
+
+async function seedDefaultExpenseCategories(db: SQLiteDatabase, now: string) {
+  for (const category of DEFAULT_EXPENSE_CATEGORIES) {
     await db.runAsync(
       `INSERT OR IGNORE INTO categories
-       (id, name, type, parent_id, icon, color, sort_order, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, name, type, parent_id, icon, icon_type, icon_blob, icon_mime,
+        color, sort_order, is_archived, created_at)
+       VALUES (?, ?, 'expense', ?, ?, ?, NULL, ?, ?, ?, 0, ?)`,
+      category.id,
+      category.name,
+      category.parentId,
+      category.icon,
+      category.iconType,
+      category.iconMime,
+      category.color,
+      category.sortOrder,
+      now
+    );
+  }
+}
+
+async function archiveLegacyExpenseCategories(db: SQLiteDatabase) {
+  const placeholders = LEGACY_EXPENSE_CATEGORY_IDS.map(() => '?').join(', ');
+  await db.runAsync(
+    `UPDATE categories SET is_archived = 1 WHERE id IN (${placeholders})`,
+    ...LEGACY_EXPENSE_CATEGORY_IDS
+  );
+}
+
+async function reparentLegacyCustomCategories(db: SQLiteDatabase) {
+  const placeholders = LEGACY_EXPENSE_ROOT_IDS.map(() => '?').join(', ');
+  await db.runAsync(
+    `UPDATE categories
+     SET parent_id = 'expense-other'
+     WHERE type = 'expense' AND is_archived = 0 AND parent_id IN (${placeholders})`,
+    ...LEGACY_EXPENSE_ROOT_IDS
+  );
+}
+
+async function persistDefaultExpenseCategoryIcons(db: SQLiteDatabase, refreshEducationIcon: boolean) {
+  for (const root of DEFAULT_EXPENSE_ROOTS) {
+    const stored = await db.getFirstAsync<{ hasIcon: number }>(
+      `SELECT CASE WHEN icon_blob IS NULL THEN 0 ELSE 1 END AS hasIcon
+       FROM categories WHERE id = ?`,
+      root.id
+    );
+    const shouldRefreshRoot = refreshEducationIcon && root.id === 'expense-education';
+    if (!stored?.hasIcon || shouldRefreshRoot) {
+      const data = await readBundledAssetBytes(root.iconAsset);
+      await db.runAsync(
+        `UPDATE categories
+         SET icon = '', icon_type = 'image', icon_blob = ?, icon_mime = 'image/png'
+         WHERE id = ?`,
+        data,
+        root.id
+      );
+    }
+
+    // 默认子分类始终复制数据库中父分类的当前名称和图片，不直接依赖静态素材。
+    await db.runAsync(
+      `UPDATE categories
+       SET name = (SELECT name FROM categories WHERE id = ?),
+           icon = (SELECT icon FROM categories WHERE id = ?),
+           icon_type = (SELECT icon_type FROM categories WHERE id = ?),
+           icon_blob = (SELECT icon_blob FROM categories WHERE id = ?),
+           icon_mime = (SELECT icon_mime FROM categories WHERE id = ?),
+           color = (SELECT color FROM categories WHERE id = ?)
+       WHERE id = ?`,
+      root.id,
+      root.id,
+      root.id,
+      root.id,
+      root.id,
+      root.id,
+      `${root.id}-default`
+    );
+  }
+}
+
+async function ensureSystemCategories(db: SQLiteDatabase, now: string) {
+  for (const [id, sortOrder] of [['transfer', 9998], ['initial-balance', 9999]] as const) {
+    await db.runAsync(
+      `INSERT OR IGNORE INTO categories
+       (id, name, type, parent_id, icon, icon_type, icon_blob, icon_mime, color, sort_order, created_at)
+       VALUES (?, '内部转账', 'transfer', NULL, '', 'image', NULL, 'image/png', '#64748B', ?, ?)`,
       id,
-      name,
-      type,
-      parentId,
-      icon,
-      color,
       sortOrder,
       now
     );
   }
+}
 
-  if (currentVersion < 4) {
-    await addDefaultSubcategories(db);
-  }
-
-  currentVersion = 5;
+async function persistInternalTransferIcon(db: SQLiteDatabase) {
+  const data = await readBundledAssetBytes(internalTransferIconAsset);
 
   await db.runAsync(
-    `UPDATE categories SET parent_id = ? WHERE id IN (?, ?, ?, ?, ?) AND parent_id IS NULL`,
-    'transport',
-    'flight',
-    'subway',
-    'bus',
-    'taxi',
-    'fuel'
+    `UPDATE categories
+     SET icon = '', icon_type = 'image', icon_blob = ?, icon_mime = 'image/png'
+     WHERE id IN ('transfer', 'initial-balance') AND icon_blob IS NULL`,
+    data
+  );
+}
+
+async function readBundledAssetBytes(assetModule: number) {
+  const [asset] = await Asset.loadAsync(assetModule);
+  const uri = asset.localUri ?? asset.uri;
+  return Platform.OS === 'web'
+    ? new Uint8Array(await (await fetch(uri)).arrayBuffer())
+    : new File(uri).bytes();
+}
+
+async function migrateLegacyCategoryIcons(db: SQLiteDatabase) {
+  const rows = await db.getAllAsync<{ id: string; icon: string }>(
+    `SELECT id, icon
+     FROM categories
+     WHERE icon_type = 'image' AND icon_blob IS NULL AND icon != ''`
   );
 
-  await db.execAsync(`PRAGMA user_version = ${currentVersion}`);
+  for (const row of rows) {
+    try {
+      const data = await new File(row.icon).bytes();
+      if (!data.length) continue;
+      await db.runAsync(
+        `UPDATE categories SET icon_blob = ?, icon_mime = ? WHERE id = ?`,
+        data,
+        imageMimeFromUri(row.icon),
+        row.id
+      );
+    } catch {
+      // 旧文件若已丢失则保留原路径，界面仍可按旧方式尝试读取。
+    }
+  }
+}
+
+function imageMimeFromUri(uri: string) {
+  const extension = uri.split(/[?#]/, 1)[0].split('.').pop()?.toLowerCase();
+  if (extension === 'jpg' || extension === 'jpeg') return 'image/jpeg';
+  if (extension === 'webp') return 'image/webp';
+  if (extension === 'heic') return 'image/heic';
+  if (extension === 'heif') return 'image/heif';
+  return 'image/png';
 }
 
 async function addColumnIfMissing(db: SQLiteDatabase, table: string, definition: string) {
@@ -161,9 +388,15 @@ async function addColumnIfMissing(db: SQLiteDatabase, table: string, definition:
 
 async function addDefaultSubcategories(db: SQLiteDatabase) {
   const roots = await db.getAllAsync<{ id: string; name: string; type: string; icon: string; color: string; sort_order: number }>(
-    `SELECT id, name, type, icon, color, sort_order
-     FROM categories
-     WHERE parent_id IS NULL AND type IN ('expense', 'income')`
+    `SELECT root.id, root.name, root.type, root.icon, root.color, root.sort_order
+     FROM categories root
+     WHERE root.parent_id IS NULL
+       AND root.type IN ('expense', 'income')
+       AND COALESCE(root.is_archived, 0) = 0
+       AND NOT EXISTS (
+         SELECT 1 FROM categories child
+         WHERE child.parent_id = root.id AND COALESCE(child.is_archived, 0) = 0
+       )`
   );
   const now = new Date().toISOString();
   for (const root of roots) {

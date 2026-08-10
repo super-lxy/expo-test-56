@@ -30,7 +30,8 @@ export function formatDayGroup(dateString: string) {
   const dayOffset = Math.round((startOfToday - startOfDate) / 86400000);
   if (dayOffset === 0) return '今天';
   if (dayOffset === 1) return '昨天';
-  return `${date.getMonth() + 1}月${date.getDate()}日`;
+  const weekday = `星期${'日一二三四五六'[date.getDay()]}`;
+  return `${date.getMonth() + 1}月${date.getDate()}日  ${weekday}`;
 }
 
 export function dateKey(dateString: string) {

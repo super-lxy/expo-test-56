@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { Image } from 'expo-image';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Alert, Keyboard, Modal, Platform, Pressable, ScrollView, StatusBar, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,8 +8,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { FontWeight, Glyph, Numeric, Type } from '@/constants/theme';
-import { findTemplate } from '@/features/accounts/domain/account.templates';
+import { findBrandAssets } from '@/features/accounts/domain/account.brands';
+import { AccountPickerSheet, type AccountPickerKind } from '@/features/transactions/components/AccountPickerSheet';
 import { CategoryGrid } from '@/features/transactions/components/CategoryGrid';
+import {
+  TransferFormPanel,
+  type TransferAdjustmentMode,
+} from '@/features/transactions/components/TransferFormPanel';
 import { TransactionKeypad } from '@/features/transactions/components/TransactionKeypad';
 import type { TransactionType } from '@/features/transactions/domain/transaction.types';
 import { createTransaction } from '@/features/transactions/application/createTransaction';
@@ -32,6 +38,9 @@ export function TransactionFormScreen() {
   const repository = useTransactionRepository();
   const [type, setType] = useState<TransactionType>('expense');
   const [amount, setAmount] = useState('');
+  const [transferAdjustment, setTransferAdjustment] = useState('');
+  const [transferAdjustmentMode, setTransferAdjustmentMode] = useState<TransferAdjustmentMode>('fee');
+  const [activeAmountField, setActiveAmountField] = useState<'amount' | 'adjustment'>('amount');
   const [note, setNote] = useState('');
   const [categoryId, setCategoryId] = useState('food');
   const [accountId, setAccountId] = useState('cash');
@@ -40,6 +49,8 @@ export function TransactionFormScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
   const [accountPicker, setAccountPicker] = useState<'source' | 'target' | null>(null);
+  const [accountPickerContent, setAccountPickerContent] = useState<AccountPickerKind>('source');
+  const [accountPickerMounted, setAccountPickerMounted] = useState(false);
   // 键盘区始终渲染（不卸载），只用 opacity/pointerEvents 切换。
   // 卸载键盘区会让 scroll 扩缩 ~280px，引起整屏跳闪。
   // keyboardDidShow/keyboardDidHide 在动画完成后才触发，
@@ -76,9 +87,25 @@ export function TransactionFormScreen() {
 
   const selectedAccount = accounts.find((account) => account.id === effectiveAccountId);
   const selectedTransferAccount = accounts.find((account) => account.id === effectiveTransferAccountId);
+  const selectedAccountBrand = selectedAccount ? findBrandAssets(selectedAccount.type) : undefined;
+
+  function openAccountPicker(kind: AccountPickerKind) {
+    setAccountPickerContent(kind);
+    setAccountPicker(kind);
+    setAccountPickerMounted(true);
+  }
+
+  function closeAccountPicker() {
+    setAccountPicker(null);
+  }
+
+  const handleAccountPickerClosed = useCallback(() => {
+    setAccountPickerMounted(false);
+  }, []);
 
   function handleTypeChange(nextType: TransactionType) {
     setType(nextType);
+    setActiveAmountField('amount');
     if (nextType === 'transfer') {
       setCategoryId('transfer');
       return;
@@ -107,17 +134,28 @@ export function TransactionFormScreen() {
   }
 
   function handleKeyPress(key: string) {
+    const editingAdjustment = type === 'transfer' && activeAmountField === 'adjustment';
+    const currentValue = editingAdjustment ? transferAdjustment : amount;
+    let nextValue = currentValue;
+
     if (key === '.') {
-      if (amount.includes('.')) return;
-      setAmount(amount ? `${amount}.` : '0.');
-      return;
+      if (currentValue.includes('.')) return;
+      nextValue = currentValue ? `${currentValue}.` : '0.';
+    } else {
+      if (currentValue.includes('.') && currentValue.split('.')[1].length >= 2) return;
+      nextValue = currentValue === '0' ? key : `${currentValue}${key}`;
     }
-    if (amount.includes('.') && amount.split('.')[1].length >= 2) return;
-    setAmount(amount === '0' ? key : `${amount}${key}`);
+
+    if (editingAdjustment) setTransferAdjustment(nextValue);
+    else setAmount(nextValue);
   }
 
   function handleBackspace() {
-    setAmount((value) => value.slice(0, -1));
+    if (type === 'transfer' && activeAmountField === 'adjustment') {
+      setTransferAdjustment((value) => value.slice(0, -1));
+    } else {
+      setAmount((value) => value.slice(0, -1));
+    }
   }
 
   async function handleSubmit(continueEntry = false) {
@@ -129,6 +167,12 @@ export function TransactionFormScreen() {
       await createTransaction(repository, {
         type,
         amountCents: parseAmountToCents(amount),
+        feeCents: type === 'transfer' && transferAdjustmentMode === 'fee'
+          ? parseAmountToCents(transferAdjustment)
+          : 0,
+        discountCents: type === 'transfer' && transferAdjustmentMode === 'discount'
+          ? parseAmountToCents(transferAdjustment)
+          : 0,
         categoryId: type === 'transfer' ? 'transfer' : effectiveCategoryId,
         accountId: effectiveAccountId,
         transferAccountId: type === 'transfer' ? effectiveTransferAccountId : undefined,
@@ -137,6 +181,8 @@ export function TransactionFormScreen() {
       });
       if (continueEntry) {
         setAmount('');
+        setTransferAdjustment('');
+        setActiveAmountField('amount');
         setNote('');
       } else {
         router.back();
@@ -151,11 +197,11 @@ export function TransactionFormScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#E8E8ED" />
+      <StatusBar barStyle="dark-content" backgroundColor="#F5F7FA" />
       <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
         <View style={styles.topPanel}>
           <View style={styles.header}>
-            <Pressable onPress={() => router.back()} hitSlop={10}><ThemedText style={styles.back}>‹</ThemedText></Pressable>
+            <Pressable onPress={() => router.back()} hitSlop={10} style={styles.headerSideButton}><ThemedText style={styles.back}>‹</ThemedText></Pressable>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeBar} contentContainerStyle={styles.typeBarContent}>
               {TYPE_OPTIONS.map((option) => (
                 <Pressable
@@ -167,7 +213,7 @@ export function TransactionFormScreen() {
                 </Pressable>
               ))}
             </ScrollView>
-            <Pressable onPress={() => router.push('/settings')} hitSlop={10}><ThemedText style={styles.settings}>⚙</ThemedText></Pressable>
+            <Pressable onPress={() => router.push('/settings')} hitSlop={10} style={styles.headerSideButton}><ThemedText style={styles.settings}>⚙</ThemedText></Pressable>
           </View>
         </View>
 
@@ -176,31 +222,60 @@ export function TransactionFormScreen() {
           {!keypadVisible ? (
             <Pressable style={StyleSheet.absoluteFill} onPress={() => Keyboard.dismiss()} />
           ) : null}
-          {type !== 'transfer' ? <CategoryGrid categories={categories} selectedCategoryId={effectiveCategoryId} onCategoryChange={setCategoryId} onSettingsPress={() => router.push('/categories')} onAddChildPress={(parent) => router.push({ pathname: '/categories/create', params: { type: type === 'income' ? 'income' : 'expense', parentId: parent.id, parentName: parent.name, parentIcon: parent.icon } })} /> : <View style={styles.transferHint}><ThemedText style={styles.transferIcon}>⇄</ThemedText><ThemedText style={styles.transferTitle}>账户间转账</ThemedText><ThemedText type="small" themeColor="textSecondary">选择转出和转入账户</ThemedText></View>}
+          {type !== 'transfer' ? (
+            <CategoryGrid
+              categories={categories}
+              selectedCategoryId={effectiveCategoryId}
+              onCategoryChange={setCategoryId}
+              onSettingsPress={() => router.push('/categories')}
+              onAddChildPress={(parent) => router.push({
+                pathname: '/categories/create',
+                params: {
+                  type: type === 'income' ? 'income' : 'expense',
+                  parentId: parent.id,
+                  parentName: parent.name,
+                  ...(parent.iconType === 'emoji' ? { parentIcon: parent.icon } : {}),
+                },
+              })}
+            />
+          ) : (
+            <TransferFormPanel
+              sourceAccount={selectedAccount}
+              targetAccount={selectedTransferAccount}
+              adjustmentMode={transferAdjustmentMode}
+              adjustmentAmount={transferAdjustment}
+              adjustmentActive={activeAmountField === 'adjustment'}
+              onSelectSource={() => openAccountPicker('source')}
+              onSelectTarget={() => openAccountPicker('target')}
+              onAdjustmentModeChange={(mode) => {
+                setTransferAdjustmentMode(mode);
+                setActiveAmountField('adjustment');
+              }}
+              onAdjustmentPress={() => setActiveAmountField('adjustment')}
+            />
+          )}
         </ScrollView>
 
-        <View style={styles.quickOptions}>
-          <Pressable onPress={() => setAccountPicker('source')} style={styles.quickOption}>
-            <ThemedText style={styles.quickOptionIcon}>💳</ThemedText>
-            <ThemedText style={styles.quickText}>{selectedAccount?.name ?? '账户'}</ThemedText>
+        {type !== 'transfer' ? <View style={styles.quickOptions}>
+          <Pressable onPress={() => openAccountPicker('source')} style={[styles.quickOption, styles.accountQuickOption]}>
+            <View style={styles.quickAccountIconBox}>
+              {selectedAccountBrand?.icon ? (
+                <Image
+                  source={selectedAccountBrand.icon}
+                  style={styles.quickAccountIcon}
+                  contentFit={selectedAccountBrand.iconFit ?? 'contain'}
+                  contentPosition={selectedAccountBrand.iconPosition ?? 'center'}
+                />
+              ) : (
+                <ThemedText style={styles.quickOptionIcon}>{selectedAccount?.icon ?? '▤'}</ThemedText>
+              )}
+            </View>
+            <ThemedText style={styles.quickText} numberOfLines={1}>{selectedAccount?.name ?? '账户'}</ThemedText>
           </Pressable>
-          {type === 'transfer' ? (
-            <Pressable onPress={() => setAccountPicker('target')} style={styles.quickOption}>
-              <ThemedText style={styles.quickOptionIcon}>↗</ThemedText>
-              <ThemedText style={styles.quickText}>{selectedTransferAccount?.name ?? '转入账户'}</ThemedText>
-            </Pressable>
-          ) : (
-            <>
-              <Pressable style={styles.quickOption}><ThemedText style={styles.quickOptionIcon}>🧾</ThemedText><ThemedText style={styles.quickText}>报销</ThemedText></Pressable>
-              <Pressable style={styles.quickOption}><ThemedText style={styles.quickOptionIcon}>#</ThemedText><ThemedText style={styles.quickText}>标签</ThemedText></Pressable>
-              <Pressable style={styles.quickOption}><ThemedText style={styles.quickOptionIcon}>∅</ThemedText><ThemedText style={styles.quickText}>不计入</ThemedText></Pressable>
-            </>
-          )}
-          <View style={styles.quickSpacer} />
-          <Pressable onPress={() => router.push('/settings')} style={styles.quickSettingsBtn}>
-            <ThemedText style={styles.quickSettingsIcon}>⚙</ThemedText>
-          </Pressable>
-        </View>
+          <Pressable style={styles.quickOption}><ThemedText style={styles.quickOptionIcon}>🧾</ThemedText><ThemedText style={styles.quickText}>报销</ThemedText></Pressable>
+          <Pressable style={styles.quickOption}><ThemedText style={styles.quickOptionIcon}>#</ThemedText><ThemedText style={styles.quickText}>标签</ThemedText></Pressable>
+          <Pressable style={styles.quickOption}><ThemedText style={styles.quickOptionIcon}>∅</ThemedText><ThemedText style={styles.quickText}>不计入</ThemedText></Pressable>
+        </View> : null}
 
         <View style={styles.inputBar}>
           {keypadVisible ? (
@@ -216,13 +291,25 @@ export function TransactionFormScreen() {
             returnKeyType="done"
             blurOnSubmit
             maxLength={150}
-            placeholder="请输入备注信息(最多150字)"
+            placeholder="添加备注…"
             placeholderTextColor="#A8A8AA"
             style={[styles.noteInput, { color: theme.text }]}
           />
           <Pressable onPress={openDatePicker} style={styles.datePill}><ThemedText style={styles.dateIcon}>▦</ThemedText><ThemedText style={styles.dateText}>{formatDateTime(occurredAt)}</ThemedText></Pressable>
-          <Pressable onPress={() => Keyboard.dismiss()}>
-            <ThemedText style={[styles.amountPreview, { color: type === 'income' ? '#2D7185' : type === 'transfer' ? '#6A6A74' : '#D85C50' }]}>¥{amount || '0.00'}</ThemedText>
+          <Pressable
+            onPress={() => {
+              setActiveAmountField('amount');
+              Keyboard.dismiss();
+            }}
+            style={styles.amountPreviewButton}>
+            {type === 'transfer' ? (
+              <ThemedText style={styles.amountFieldLabel}>
+                {activeAmountField === 'adjustment'
+                  ? transferAdjustmentMode === 'fee' ? '手续费' : '优惠'
+                  : '转账金额'}
+              </ThemedText>
+            ) : null}
+            <ThemedText style={[styles.amountPreview, { color: type === 'income' ? '#2D7185' : type === 'transfer' ? '#6A6A74' : '#D85C50' }]}>¥{type === 'transfer' && activeAmountField === 'adjustment' ? (transferAdjustment || '0.00') : (amount || '0.00')}</ThemedText>
           </Pressable>
         </View>
         {/* 键盘区始终保留在布局中，切换时只改 opacity + pointerEvents，
@@ -243,24 +330,22 @@ export function TransactionFormScreen() {
             </View>
           </View>
         </Modal>
-        <Modal visible={accountPicker !== null} transparent animationType="slide" onRequestClose={() => setAccountPicker(null)}>
-          <View style={styles.pickerBackdrop}>
-            <View style={styles.accountSheet}>
-              <ThemedText style={styles.pickerTitle}>{accountPicker === 'target' ? '选择转入账户' : '选择账户'}</ThemedText>
-              {accounts.filter((account) => accountPicker !== 'target' || account.id !== effectiveAccountId).map((account) => (
-                <Pressable key={account.id} style={styles.accountChoice} onPress={() => {
-                  if (accountPicker === 'target') setTransferAccountId(account.id);
-                  else setAccountId(account.id);
-                  setAccountPicker(null);
-                }}>
-                  <ThemedText style={styles.accountChoiceName}>{account.name}</ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">{findTemplate(account.type)?.label ?? '其他'}</ThemedText>
-                </Pressable>
-              ))}
-              <Pressable onPress={() => setAccountPicker(null)} style={styles.pickerCancel}><ThemedText themeColor="textSecondary">取消</ThemedText></Pressable>
-            </View>
-          </View>
-        </Modal>
+        <AccountPickerSheet
+          kind={accountPicker}
+          displayKind={accountPickerContent}
+          mounted={accountPickerMounted}
+          accounts={accounts}
+          sourceAccountId={effectiveAccountId}
+          targetAccountId={effectiveTransferAccountId}
+          transferMode={type === 'transfer'}
+          onClose={closeAccountPicker}
+          onClosed={handleAccountPickerClosed}
+          onSelect={(pickerKind, nextAccountId) => {
+            if (pickerKind === 'target') setTransferAccountId(nextAccountId);
+            else setAccountId(nextAccountId);
+            closeAccountPicker();
+          }}
+        />
       </SafeAreaView>
     </ThemedView>
   );
@@ -269,47 +354,42 @@ export function TransactionFormScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
   safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
-  topPanel: { backgroundColor: '#F5F7FA', paddingHorizontal: 10, paddingBottom: 7 },
-  header: { minHeight: 53, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  topPanel: { backgroundColor: '#F5F7FA', paddingHorizontal: 8, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: '#EEF0F2' },
+  header: { minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerSideButton: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
   back: { fontSize: 32, lineHeight: 34, color: '#17212B', fontWeight: FontWeight.regular },
   typeBar: { flex: 1 },
-  typeBarContent: { flexGrow: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 5 },
-  typeItem: { paddingHorizontal: 8, paddingVertical: 7, borderRadius: 20 },
+  typeBarContent: { flexGrow: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 2 },
+  typeItem: { paddingHorizontal: 7, paddingVertical: 6, borderRadius: 16 },
   activeType: { backgroundColor: '#1C2128' },
   typeText: { ...Type.body, fontWeight: FontWeight.semibold, color: '#71808C' },
   activeTypeText: { color: '#FFFFFF' },
   disabledTypeItem: { opacity: 0.45 },
   disabledType: { color: '#9AABB0' },
-  settings: { ...Glyph.lg, color: '#71808C' },
+  settings: { ...Glyph.md, color: '#71808C' },
   scroll: { flex: 1 },
-  scrollContent: { paddingBottom: 10 },
-  transferHint: { alignItems: 'center', justifyContent: 'center', paddingVertical: 45, gap: 7 },
-  transferIcon: { ...Glyph.xxl, color: '#5A6B78' },
-  transferTitle: { ...Type.headline, fontWeight: FontWeight.semibold },
-  quickOptions: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingTop: 5, paddingBottom: 5, gap: 5, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#EEF0F2' },
+  scrollContent: { paddingBottom: 4 },
+  quickOptions: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 9, paddingVertical: 6, gap: 5, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#EEF0F2' },
   // 药丸形带描边，参考图样式
-  quickOption: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 7, paddingVertical: 5, borderRadius: 16, borderWidth: 1, borderColor: '#E4E8EC', backgroundColor: '#F8F9FA' },
+  quickOption: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 15, backgroundColor: '#F3F5F6' },
+  accountQuickOption: { maxWidth: 112, backgroundColor: '#EEF4F1' },
+  quickAccountIconBox: { width: 18, height: 18, borderRadius: 9, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
+  quickAccountIcon: { width: 17, height: 17, borderRadius: 8.5 },
   quickOptionIcon: { fontSize: 13, lineHeight: 16 },
   quickText: { ...Type.footnote, fontWeight: FontWeight.medium, color: '#3A4249' },
-  quickSpacer: { flex: 1 },
-  quickSettingsBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#F0F2F4', alignItems: 'center', justifyContent: 'center' },
-  quickSettingsIcon: { ...Glyph.sm, color: '#8C9AA6' },
-  inputBar: { minHeight: 50, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 9, gap: 7, borderTopWidth: 1, borderColor: '#E6ECE8', backgroundColor: '#FFFFFF' },
-  downButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#ECEEF0', alignItems: 'center', justifyContent: 'center' },
+  inputBar: { minHeight: 50, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, gap: 6, borderTopWidth: 1, borderColor: '#E6E9E7', backgroundColor: '#FFFFFF' },
   noteToggle: { width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: '#C8CDD2', alignItems: 'center', justifyContent: 'center' },
   noteToggleIcon: { fontSize: 11, lineHeight: 14, color: '#8C96A0', fontWeight: FontWeight.medium, marginTop: -1 },
   noteInput: { flex: 1, minWidth: 70, ...Type.body, paddingVertical: 8, color: '#6E7772' },
-  datePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 7, paddingVertical: 8, borderRadius: 14, backgroundColor: '#ECEEF0' },
+  datePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 7, paddingVertical: 7, borderRadius: 14, backgroundColor: '#F0F2F3' },
   dateIcon: { ...Glyph.sm, color: '#5A6B78' },
   dateText: { ...Type.footnote, ...Numeric, fontWeight: FontWeight.semibold },
   amountPreview: { ...Type.title, ...Numeric, fontWeight: FontWeight.bold, minWidth: 78, textAlign: 'right' },
+  amountPreviewButton: { alignItems: 'flex-end', justifyContent: 'center' },
+  amountFieldLabel: { ...Type.caption, color: '#8A9298', lineHeight: 13 },
   pickerBackdrop: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: 'rgba(20, 28, 32, 0.35)' },
   pickerCard: { borderRadius: 20, padding: 18, backgroundColor: '#FFFFFF', alignItems: 'center', gap: 12 },
   pickerTitle: { ...Type.headline, fontWeight: FontWeight.semibold },
   pickerDone: { alignSelf: 'stretch', alignItems: 'center', borderRadius: 12, paddingVertical: 11, backgroundColor: '#167C80' },
   pickerDoneText: { ...Type.body, color: '#FFFFFF', fontWeight: FontWeight.semibold },
-  accountSheet: { borderRadius: 20, padding: 18, backgroundColor: '#FFFFFF', gap: 8 },
-  accountChoice: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#ECEDEF' },
-  accountChoiceName: { ...Type.body, fontWeight: FontWeight.semibold },
-  pickerCancel: { alignItems: 'center', paddingVertical: 10 },
 });
