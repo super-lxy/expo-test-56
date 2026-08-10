@@ -33,5 +33,24 @@ export function useAccounts() {
     await refresh();
   }, [db, refresh]);
 
-  return { accounts, hiddenAccounts, allAccounts, loading, refresh, updateAccountStatus };
+  const deleteAccountOnly = useCallback(async (id: string) => {
+    await new AccountRepository(db).deleteAccountOnly(id);
+    await refresh();
+  }, [db, refresh]);
+
+  const deleteAccountAndTransactions = useCallback(async (id: string) => {
+    await new AccountRepository(db).deleteAccountAndTransactions(id);
+    await refresh();
+  }, [db, refresh]);
+
+  return {
+    accounts,
+    hiddenAccounts,
+    allAccounts,
+    loading,
+    refresh,
+    updateAccountStatus,
+    deleteAccountOnly,
+    deleteAccountAndTransactions,
+  };
 }

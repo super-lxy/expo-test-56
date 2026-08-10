@@ -15,7 +15,7 @@ export const DATABASE_NAME = 'ledger.db';
 const internalTransferIconAsset = require('../../../assets/images/system/internal-transfer.png');
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
-  const DATABASE_VERSION = 15;
+  const DATABASE_VERSION = 16;
   const versionRow = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
   let currentVersion = versionRow?.user_version ?? 0;
   const isNewDatabase = currentVersion === 0;
@@ -107,6 +107,11 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     await addColumnIfMissing(db, 'categories', 'is_archived INTEGER NOT NULL DEFAULT 0');
   }
 
+  // v16：支持仅删除资产但保留历史账单。
+  if (currentVersion > 0 && currentVersion < 16) {
+    await addColumnIfMissing(db, 'accounts', 'deleted_at TEXT');
+  }
+
   await db.execAsync(`
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
@@ -125,6 +130,7 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       due_day INTEGER,
       status TEXT NOT NULL DEFAULT 'active',
       include_in_net_worth INTEGER NOT NULL DEFAULT 1,
+      deleted_at TEXT,
       created_at TEXT NOT NULL
     );
 
@@ -220,7 +226,7 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     await addDefaultSubcategories(db);
   }
 
-  currentVersion = 15;
+  currentVersion = 16;
 
   await db.execAsync(`PRAGMA user_version = ${currentVersion}`);
 }

@@ -1,6 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Animated, Dimensions, Easing, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Animated, Dimensions, Easing, Modal, Pressable, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -12,6 +13,35 @@ import type { Category, CategoryType } from '../domain/category.types';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const CATEGORY_ICON_BACKGROUND = '#F1F3F4';
+const CATEGORY_HEADER_BACKGROUND = '#A8D3AD';
+
+function CategoryChevron({ expanded }: { expanded: boolean }) {
+  const [rotation] = useState(() => new Animated.Value(expanded ? 90 : 0));
+
+  useEffect(() => {
+    Animated.timing(rotation, {
+      toValue: expanded ? 90 : 0,
+      duration: 180,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start();
+  }, [expanded, rotation]);
+
+  return (
+    <Animated.View
+      style={[
+        styles.chevronSlot,
+        { transform: [{ rotate: rotation.interpolate({ inputRange: [0, 90], outputRange: ['0deg', '90deg'] }) }] },
+      ]}>
+      <SymbolView
+        name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
+        size={15}
+        weight="bold"
+        tintColor={expanded ? '#6A7A88' : '#B8C1C8'}
+      />
+    </Animated.View>
+  );
+}
 
 /** 一个一级分类行（含展开后的子分类横向滚动区）*/
 function CategoryRow({
@@ -35,7 +65,7 @@ function CategoryRow({
     <View>
       <Pressable onPress={onToggle} style={styles.row}>
         {/* 左侧展开箭头 */}
-        <ThemedText style={[styles.chevron, expanded && styles.chevronOpen]}>›</ThemedText>
+        <CategoryChevron expanded={expanded} />
         {/* 图标方块 */}
         <View style={styles.iconBox}>
           <CategoryIcon icon={root.icon} iconType={root.iconType} imageSize={36} textStyle={styles.iconText} />
@@ -182,6 +212,7 @@ export function CategoriesScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={CATEGORY_HEADER_BACKGROUND} />
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         {/* 顶部栏：返回 + 分段切换 */}
         <View style={styles.header}>
@@ -324,31 +355,30 @@ export function CategoriesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  safeArea: { flex: 1 },
+  safeArea: { flex: 1, backgroundColor: CATEGORY_HEADER_BACKGROUND },
 
   // ── 顶部栏 ──────────────────────────────────
-  header: { minHeight: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#EEF0F2' },
+  header: { minHeight: 58, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10 },
   back: { fontSize: 32, lineHeight: 34, fontWeight: FontWeight.regular, color: '#17212B', width: 28 },
-  segmented: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 4 },
-  seg: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 20 },
-  segActive: { backgroundColor: '#1C2128' },
-  segText: { ...Type.body, fontWeight: FontWeight.semibold, color: '#71808C' },
+  segmented: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 2 },
+  seg: { paddingHorizontal: 7, paddingVertical: 6, borderRadius: 20 },
+  segActive: { backgroundColor: '#34314F' },
+  segText: { ...Type.body, fontWeight: FontWeight.semibold, color: '#17212B' },
   segTextActive: { color: '#FFFFFF' },
   headerSpacer: { width: 28 },
 
   // ── 列表 ──────────────────────────────────
-  list: { flex: 1 },
+  list: { flex: 1, backgroundColor: '#FFFFFF' },
   listContent: { paddingBottom: 20 },
 
-  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, gap: 10, backgroundColor: '#FFFFFF' },
-  chevron: { ...Type.body, color: '#C0C8D0', fontWeight: FontWeight.regular, width: 14 },
-  chevronOpen: { color: '#6A7A88', transform: [{ rotate: '90deg' }] },
-  iconBox: { width: 46, height: 46, borderRadius: 14, backgroundColor: CATEGORY_ICON_BACKGROUND, alignItems: 'center', justifyContent: 'center' },
+  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 9, gap: 3, backgroundColor: '#FFFFFF' },
+  chevronSlot: { width: 14, height: 20, alignItems: 'center', justifyContent: 'center' },
+  iconBox: { width: 40, height: 40, borderRadius: 13, backgroundColor: CATEGORY_ICON_BACKGROUND, alignItems: 'center', justifyContent: 'center' },
   iconText: { ...Glyph.lg },
-  rowName: { flex: 1, ...Type.body, fontWeight: FontWeight.medium },
+  rowName: { flex: 1, marginLeft: 6, ...Type.headline, fontWeight: FontWeight.medium },
   moreBtn: { paddingHorizontal: 6 },
-  moreText: { ...Type.body, color: '#B0BAC2', letterSpacing: 1 },
-  divider: { height: 1, backgroundColor: '#F2F4F6', marginLeft: 82 },
+  moreText: { ...Glyph.md, color: '#B0BAC2', letterSpacing: 2 },
+  divider: { height: 1, marginHorizontal: 16, backgroundColor: '#F2F4F6' },
 
   // ── 展开区 ──────────────────────────────────
   expandedBlock: { backgroundColor: '#FAFBFC', paddingBottom: 12 },
@@ -364,9 +394,9 @@ const styles = StyleSheet.create({
   childName: { ...Type.caption, color: '#4A5560', textAlign: 'center' },
 
   // ── 底部栏 ──────────────────────────────────
-  bottomBar: { paddingHorizontal: Spacing.three, paddingTop: 10, paddingBottom: 6, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#EEF0F2' },
-  addButton: { backgroundColor: '#167C80', borderRadius: 16, alignItems: 'center', paddingVertical: 16 },
-  addText: { ...Type.body, color: '#FFFFFF', fontWeight: FontWeight.semibold },
+  bottomBar: { paddingHorizontal: Spacing.four, paddingTop: 12, paddingBottom: 8, backgroundColor: '#FFFFFF' },
+  addButton: { backgroundColor: CATEGORY_HEADER_BACKGROUND, borderRadius: 18, alignItems: 'center', paddingVertical: 16 },
+  addText: { ...Type.body, color: '#17212B', fontWeight: FontWeight.semibold },
 
   // ── 子分类操作菜单 ──────────────────────────────────
   sheetBackdrop: { flex: 1, backgroundColor: 'rgba(20,26,30,0.35)' },

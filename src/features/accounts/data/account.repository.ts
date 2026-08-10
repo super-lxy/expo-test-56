@@ -12,10 +12,11 @@ type AccountRow = {
   initial_balance_cents: number;
   currency: string;
   credit_limit_cents: number | null;
-  statement_day: number | null;
-  due_day: number | null;
-  status: AccountStatus;
-  include_in_net_worth: number;
+      statement_day: number | null;
+      due_day: number | null;
+      status: AccountStatus;
+      include_in_net_worth: number;
+      deleted_at: string | null;
 };
 
 function mapAccount(row: AccountRow): Account {
@@ -42,8 +43,10 @@ export class AccountRepository {
   async list(): Promise<Account[]> {
     const rows = await this.db.getAllAsync<AccountRow>(
       `SELECT id, name, type, kind, icon, color, initial_balance_cents, currency,
-              credit_limit_cents, statement_day, due_day, status, include_in_net_worth
-       FROM accounts ORDER BY created_at`
+              credit_limit_cents, statement_day, due_day, status, include_in_net_worth, deleted_at
+       FROM accounts
+       WHERE deleted_at IS NULL
+       ORDER BY created_at`
     );
     return rows.map(mapAccount);
   }
@@ -114,6 +117,26 @@ export class AccountRepository {
       status,
       id
     );
+  }
+
+  async deleteAccountOnly(id: string) {
+    await this.db.runAsync(
+      `UPDATE accounts SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL`,
+      new Date().toISOString(),
+      id
+    );
+  }
+
+  async deleteAccountAndTransactions(id: string) {
+    await this.db.withTransactionAsync(async () => {
+      await this.db.runAsync(
+        `DELETE FROM transactions
+         WHERE account_id = ? OR transfer_account_id = ?`,
+        id,
+        id
+      );
+      await this.db.runAsync(`DELETE FROM accounts WHERE id = ?`, id);
+    });
   }
 
   async update(id: string, input: {

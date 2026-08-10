@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { SymbolView } from 'expo-symbols';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import Animated, { FadeIn, FadeInDown, FadeOut, LinearTransition, type SharedValue, useAnimatedStyle } from 'react-native-reanimated';
@@ -26,21 +27,33 @@ function formatPercent(value: number, total: number) {
 }
 
 const accountLayoutTransition = LinearTransition.springify().damping(22).stiffness(220);
-const swipeActionsWidth = 132;
+const swipeActionsWidth = 198;
+const swipeAnimationOptions = {
+  damping: 22,
+  stiffness: 220,
+  overshootClamping: true,
+};
 
 type AccountFilter = 'all' | 'asset' | 'liability' | 'hidden';
+type DeleteMode = 'account' | 'accountAndTransactions';
+
+function createDeleteCode() {
+  return Array.from({ length: 4 }, () => Math.floor(Math.random() * 10000).toString().padStart(4, '0')).join(' ');
+}
 
 function AccountSwipeActions({
   translation,
   statusActionLabel,
   onStatusAction,
   onEdit,
+  onDelete,
   onClose,
 }: {
   translation: SharedValue<number>;
   statusActionLabel: '隐藏' | '恢复';
   onStatusAction: () => void;
   onEdit: () => void;
+  onDelete: () => void;
   onClose: () => void;
 }) {
   const revealStyle = useAnimatedStyle(() => {
@@ -63,6 +76,11 @@ function AccountSwipeActions({
         style={({ pressed }) => [styles.swipeAction, styles.editSwipeAction, pressed && styles.swipeActionPressed]}>
         <ThemedText style={styles.swipeActionText}>编辑</ThemedText>
       </Pressable>
+      <Pressable
+        onPress={() => { onClose(); onDelete(); }}
+        style={({ pressed }) => [styles.swipeAction, styles.deleteSwipeAction, pressed && styles.swipeActionPressed]}>
+        <ThemedText style={styles.swipeActionText}>删除</ThemedText>
+      </Pressable>
     </Animated.View>
   );
 }
@@ -75,6 +93,7 @@ function AccountRow({
   statusActionLabel,
   onStatusAction,
   onEdit,
+  onDelete,
   onSwipeableOpen,
   onSwipeableClose,
 }: {
@@ -85,6 +104,7 @@ function AccountRow({
   statusActionLabel: '隐藏' | '恢复';
   onStatusAction: () => void;
   onEdit: () => void;
+  onDelete: () => void;
   onSwipeableOpen: (swipeable: SwipeableMethods) => void;
   onSwipeableClose: (swipeable: SwipeableMethods) => void;
 }) {
@@ -99,6 +119,7 @@ function AccountRow({
       <ReanimatedSwipeable
         ref={swipeableRef}
         friction={1.15}
+        animationOptions={swipeAnimationOptions}
         rightThreshold={72}
         overshootRight={false}
         onSwipeableOpen={() => {
@@ -115,6 +136,7 @@ function AccountRow({
             statusActionLabel={statusActionLabel}
             onStatusAction={onStatusAction}
             onEdit={onEdit}
+            onDelete={onDelete}
             onClose={methods.close}
           />
         )}>
@@ -162,15 +184,153 @@ function AccountRow({
   );
 }
 
+function AssetDeleteFlow({
+  account,
+  onClose,
+  onDeleteOnly,
+  onDeleteAndTransactions,
+  onDeleted,
+}: {
+  account: AccountBalance;
+  onClose: () => void;
+  onDeleteOnly: (id: string) => Promise<void>;
+  onDeleteAndTransactions: (id: string) => Promise<void>;
+  onDeleted: () => Promise<void>;
+}) {
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [deleteMode, setDeleteMode] = useState<DeleteMode>('accountAndTransactions');
+  const [deleteCode, setDeleteCode] = useState('');
+  const [deleteCodeInput, setDeleteCodeInput] = useState('');
+
+  function openDeleteConfirmation(mode: DeleteMode) {
+    setDeleteMode(mode);
+    setDeleteCode(createDeleteCode());
+    setDeleteCodeInput('');
+    setConfirmVisible(true);
+  }
+
+  async function handleDeleteConfirmed() {
+    if (deleteCodeInput.replace(/\s/g, '') !== deleteCode.replace(/\s/g, '')) return;
+    try {
+      if (deleteMode === 'accountAndTransactions') await onDeleteAndTransactions(account.id);
+      else await onDeleteOnly(account.id);
+      await onDeleted();
+      onClose();
+    } catch (error) {
+      Alert.alert('无法删除资产', error instanceof Error ? error.message : '请稍后重试');
+    }
+  }
+
+  const codeMatches = deleteCodeInput.replace(/\s/g, '') === deleteCode.replace(/\s/g, '');
+
+  return (
+    <>
+      <Modal
+        visible={!confirmVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={onClose}>
+        <Pressable style={styles.deleteOverlay} onPress={onClose}>
+          <Pressable style={styles.deleteOptionsSheet} onPress={() => {}}>
+            <View style={styles.deleteSheetHeader}>
+              <ThemedText style={styles.deleteSheetTitle}>删除资产账户</ThemedText>
+              <Pressable onPress={onClose} style={styles.deleteClose} hitSlop={8}>
+                <ThemedText style={styles.deleteCloseText}>×</ThemedText>
+              </Pressable>
+            </View>
+            <Pressable style={styles.deleteOption} onPress={() => openDeleteConfirmation('accountAndTransactions')}>
+              <View style={[styles.deleteOptionIcon, styles.deleteOptionIconDanger]}>
+                <SymbolView name={{ ios: 'trash.fill', android: 'delete_forever', web: 'delete_forever' }} size={19} tintColor="#D94B45" />
+              </View>
+              <View style={styles.deleteOptionText}>
+                <ThemedText style={styles.deleteOptionTitleDanger}>删除资产和账单</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">永久删除该资产及其所有相关账单</ThemedText>
+              </View>
+              <SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }} size={18} tintColor="#C8CDD1" />
+            </Pressable>
+            <Pressable style={[styles.deleteOption, styles.deleteOptionBorder]} onPress={() => openDeleteConfirmation('account')}>
+              <View style={[styles.deleteOptionIcon, styles.deleteOptionIconWarning]}>
+                <SymbolView name={{ ios: 'trash', android: 'delete', web: 'delete' }} size={19} tintColor="#E89A18" />
+              </View>
+              <View style={styles.deleteOptionText}>
+                <ThemedText style={styles.deleteOptionTitle}>仅删除资产</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">保留历史账单，但不再显示该资产</ThemedText>
+              </View>
+              <SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }} size={18} tintColor="#C8CDD1" />
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={confirmVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setConfirmVisible(false)}>
+        <View style={styles.deleteConfirmOverlay}>
+          <View style={styles.deleteConfirmSheet}>
+            <View style={styles.deleteConfirmHeader}>
+              <Pressable onPress={() => setConfirmVisible(false)} style={styles.deleteClose} hitSlop={8}>
+                <ThemedText style={styles.deleteCloseText}>×</ThemedText>
+              </Pressable>
+              <ThemedText style={styles.deleteConfirmTitle}>确认删除</ThemedText>
+            </View>
+            <View style={styles.deleteCodeHint}>
+              <ThemedText style={styles.deleteInfoSymbol}>ⓘ</ThemedText>
+              <ThemedText style={styles.deleteCodeHintText}>请输入下方验证码，确认你已了解此操作不可恢复</ThemedText>
+            </View>
+            <ThemedText style={styles.deleteCode}>{deleteCode}</ThemedText>
+            <TextInput
+              value={deleteCodeInput}
+              onChangeText={setDeleteCodeInput}
+              placeholder="输入验证码"
+              placeholderTextColor="#92979C"
+              keyboardType="number-pad"
+              autoFocus
+              style={styles.deleteCodeInput}
+              maxLength={19}
+            />
+            <View style={styles.deleteWarningBox}>
+              <ThemedText style={styles.deleteWarningSymbol}>⚠</ThemedText>
+              <ThemedText style={styles.deleteWarningText}>
+                {deleteMode === 'accountAndTransactions'
+                  ? '将永久删除该资产及其所有相关账单，数据无法恢复。'
+                  : '将移除该资产，但历史账单会保留。'}
+              </ThemedText>
+            </View>
+            <Pressable
+              onPress={() => void handleDeleteConfirmed()}
+              disabled={!codeMatches}
+              style={({ pressed }) => [
+                styles.deleteConfirmButton,
+                !codeMatches && styles.deleteConfirmButtonDisabled,
+                pressed && styles.deleteConfirmButtonPressed,
+              ]}>
+              <ThemedText style={styles.deleteConfirmButtonText}>确认删除</ThemedText>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+    </>
+  );
+}
+
 export function AssetsScreen() {
   const router = useRouter();
   const openSwipeableRef = useRef<SwipeableMethods | null>(null);
   const [range, setRange] = useState<'all' | 'day' | 'week' | 'month'>('day');
   const [accountFilter, setAccountFilter] = useState<AccountFilter>('all');
-  const { accounts, hiddenAccounts, updateAccountStatus } = useAccounts();
+  const {
+    accounts,
+    hiddenAccounts,
+    updateAccountStatus,
+    deleteAccountOnly,
+    deleteAccountAndTransactions,
+  } = useAccounts();
+  const [deleteTarget, setDeleteTarget] = useState<AccountBalance | null>(null);
   const onScroll = useHideTabBarOnScroll();
-  const { transactions } = useTransactions();
-  const { summary } = useMonthlySummary();
+  const { transactions, refresh: refreshTransactions } = useTransactions();
+  const { summary, refresh: refreshSummary } = useMonthlySummary();
   const netWorthAccounts = useMemo(
     () => accounts.filter((account) => account.includeInNetWorth),
     [accounts]
@@ -185,9 +345,12 @@ export function AssetsScreen() {
   const trend = useMemo(() => buildNetWorthTrend(netWorthAccounts, transactions), [netWorthAccounts, transactions]);
   const assetCount = accounts.filter((account) => account.kind !== 'liability').length;
   const liabilityCount = accounts.length - assetCount;
-  const filteredAccounts = accountFilter === 'hidden' ? hiddenAccounts : accounts.filter((account) => {
-    if (accountFilter === 'asset') return account.kind !== 'liability';
-    if (accountFilter === 'liability') return account.kind === 'liability';
+  const effectiveAccountFilter = accountFilter === 'hidden' && hiddenAccounts.length === 0
+    ? 'all'
+    : accountFilter;
+  const filteredAccounts = effectiveAccountFilter === 'hidden' ? hiddenAccounts : accounts.filter((account) => {
+    if (effectiveAccountFilter === 'asset') return account.kind !== 'liability';
+    if (effectiveAccountFilter === 'liability') return account.kind === 'liability';
     return true;
   });
   const accountFilterOptions: [AccountFilter, string][] = [
@@ -210,10 +373,6 @@ export function AssetsScreen() {
   const handleSwipeableClose = useCallback((swipeable: SwipeableMethods) => {
     if (openSwipeableRef.current === swipeable) openSwipeableRef.current = null;
   }, []);
-
-  useEffect(() => {
-    if (accountFilter === 'hidden' && hiddenAccounts.length === 0) setAccountFilter('all');
-  }, [accountFilter, hiddenAccounts.length]);
 
   async function restoreAccount(id: string) {
     try {
@@ -291,14 +450,14 @@ export function AssetsScreen() {
                   key={key}
                   onPress={() => setAccountFilter(key)}
                   style={({ pressed }) => [styles.accountFilter, pressed && styles.filterPressed]}>
-                  {accountFilter === key ? (
+                  {effectiveAccountFilter === key ? (
                     <Animated.View
                       entering={FadeIn.duration(170)}
                       exiting={FadeOut.duration(110)}
                       style={styles.accountFilterActive}
                     />
                   ) : null}
-                  <ThemedText style={[styles.accountFilterText, accountFilter === key && styles.accountFilterTextActive]}>
+                  <ThemedText style={[styles.accountFilterText, effectiveAccountFilter === key && styles.accountFilterTextActive]}>
                     {label}
                   </ThemedText>
                 </Pressable>
@@ -313,8 +472,8 @@ export function AssetsScreen() {
                   total={totalAssets}
                   showDivider={index > 0}
                   index={index}
-                  statusActionLabel={accountFilter === 'hidden' ? '恢复' : '隐藏'}
-                  onStatusAction={accountFilter === 'hidden'
+                  statusActionLabel={effectiveAccountFilter === 'hidden' ? '恢复' : '隐藏'}
+                  onStatusAction={effectiveAccountFilter === 'hidden'
                     ? () => { void restoreAccount(account.id); }
                     : () => { void hideAccount(account.id); }}
                   onSwipeableOpen={handleSwipeableOpen}
@@ -323,11 +482,12 @@ export function AssetsScreen() {
                     pathname: '/accounts/new',
                     params: { templateId: account.type, accountId: account.id },
                   })}
+                  onDelete={() => setDeleteTarget(account)}
                 />
               )) : (
                 <View style={styles.emptyAccounts}>
                   <ThemedText type="small" themeColor="textSecondary">
-                    {accountFilter === 'hidden'
+                    {effectiveAccountFilter === 'hidden'
                       ? '暂无隐藏账户'
                       : accounts.length === 0
                         ? '还没有账户，点击右上角添加'
@@ -352,6 +512,15 @@ export function AssetsScreen() {
           </Animated.View>
         </ScrollView>
       </SafeAreaView>
+      {deleteTarget ? (
+        <AssetDeleteFlow
+          account={deleteTarget}
+          onClose={() => setDeleteTarget(null)}
+          onDeleteOnly={deleteAccountOnly}
+          onDeleteAndTransactions={deleteAccountAndTransactions}
+          onDeleted={() => Promise.all([refreshTransactions(), refreshSummary()]).then(() => undefined)}
+        />
+      ) : null}
     </ThemedView>
   );
 }
@@ -408,8 +577,39 @@ const styles = StyleSheet.create({
   swipeAction: { width: 60, height: 50, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   statusSwipeAction: { backgroundColor: '#C7C8C7' },
   editSwipeAction: { backgroundColor: '#8FD49B' },
+  deleteSwipeAction: { backgroundColor: '#E06B62' },
   swipeActionText: { ...Type.body, color: '#FFFFFF', fontWeight: FontWeight.semibold },
   swipeActionPressed: { opacity: 0.82, transform: [{ scale: 0.97 }] },
+  deleteOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(20,26,30,0.42)' },
+  deleteOptionsSheet: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 18, paddingBottom: 28 },
+  deleteSheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 18, paddingBottom: 14 },
+  deleteSheetTitle: { ...Type.headline, fontWeight: FontWeight.semibold },
+  deleteClose: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0F2F4' },
+  deleteCloseText: { fontSize: 25, lineHeight: 28, color: '#737B82', fontWeight: FontWeight.regular },
+  deleteOption: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 14 },
+  deleteOptionBorder: { borderTopWidth: 1, borderTopColor: '#F0F1F2' },
+  deleteOptionIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  deleteOptionIconDanger: { backgroundColor: '#FDE8E6' },
+  deleteOptionIconWarning: { backgroundColor: '#FFF3DE' },
+  deleteOptionText: { flex: 1, gap: 2 },
+  deleteOptionTitle: { ...Type.body, fontWeight: FontWeight.semibold, color: '#2B3034' },
+  deleteOptionTitleDanger: { ...Type.body, fontWeight: FontWeight.semibold, color: '#D94B45' },
+  deleteConfirmOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(20,26,30,0.42)' },
+  deleteConfirmSheet: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingBottom: 28 },
+  deleteConfirmHeader: { position: 'relative', alignItems: 'flex-start', paddingTop: 18, paddingBottom: 16 },
+  deleteConfirmTitle: { alignSelf: 'center', ...Type.title, fontWeight: FontWeight.semibold, color: '#17212B' },
+  deleteCodeHint: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#F5F6F7' },
+  deleteInfoSymbol: { ...Type.headline, lineHeight: 19, color: '#7E858C' },
+  deleteCodeHintText: { flex: 1, ...Type.footnote, color: '#737B82' },
+  deleteCode: { marginTop: 18, textAlign: 'center', ...Type.title, letterSpacing: 2, color: '#17212B', fontWeight: FontWeight.bold },
+  deleteCodeInput: { marginTop: 14, minHeight: 54, borderRadius: 16, paddingHorizontal: 16, ...Type.headline, textAlign: 'center', letterSpacing: 2, color: '#17212B', backgroundColor: '#F5F6F7' },
+  deleteWarningBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 14, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11, backgroundColor: '#FFF5E4' },
+  deleteWarningSymbol: { ...Type.headline, lineHeight: 19, color: '#E9A51B' },
+  deleteWarningText: { flex: 1, ...Type.footnote, color: '#7A6650' },
+  deleteConfirmButton: { marginTop: 18, borderRadius: 999, alignItems: 'center', paddingVertical: 15, backgroundColor: '#A8D3AD' },
+  deleteConfirmButtonDisabled: { backgroundColor: '#E6E8E9' },
+  deleteConfirmButtonPressed: { opacity: 0.78 },
+  deleteConfirmButtonText: { ...Type.headline, color: '#17212B', fontWeight: FontWeight.semibold },
   emptyAccounts: { minHeight: 54, alignItems: 'center', justifyContent: 'center' },
   trendHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   rangeControl: { flexDirection: 'row', alignItems: 'center', gap: 2 },

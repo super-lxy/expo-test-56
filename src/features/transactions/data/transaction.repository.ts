@@ -75,7 +75,7 @@ export class TransactionRepository {
           c.icon_type AS category_icon_type,
           c.color AS category_color,
           t.account_id,
-          a.name AS account_name,
+          COALESCE(a.name, '已删除资产') AS account_name,
           t.transfer_account_id,
           target_a.name AS transfer_account_name,
           t.fee_cents,
@@ -85,7 +85,7 @@ export class TransactionRepository {
         FROM transactions t
         INNER JOIN categories c ON c.id = t.category_id
         LEFT JOIN categories parent_c ON parent_c.id = c.parent_id
-        INNER JOIN accounts a ON a.id = t.account_id
+        LEFT JOIN accounts a ON a.id = t.account_id
         LEFT JOIN accounts target_a ON target_a.id = t.transfer_account_id
         WHERE t.deleted_at IS NULL
         ORDER BY t.occurred_at DESC, t.created_at DESC
