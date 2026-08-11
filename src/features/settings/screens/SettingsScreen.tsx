@@ -2,9 +2,10 @@ import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppBackground } from '@/components/app-background';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { FontWeight, Spacing, Type } from '@/constants/theme';
+import { AppPalette, FontWeight, Spacing, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export function SettingsScreen() {
@@ -13,6 +14,7 @@ export function SettingsScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      <AppBackground />
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.content}>
           <ThemedText style={styles.eyebrow} themeColor="textSecondary">偏好与管理</ThemedText>
@@ -41,6 +43,6 @@ const styles = StyleSheet.create({
   content: { padding: Spacing.three, gap: Spacing.two },
   eyebrow: { ...Type.footnote, fontWeight: FontWeight.semibold, letterSpacing: 0.5, textTransform: 'uppercase' },
   title: { marginBottom: Spacing.two },
-  card: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: Spacing.four, gap: Spacing.one, borderWidth: 1, borderColor: '#E7EDF0', shadowColor: '#31414D', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 1 },
+  card: { backgroundColor: AppPalette.surface, borderRadius: 18, padding: Spacing.four, gap: Spacing.one, borderWidth: 1, borderColor: AppPalette.line, shadowColor: AppPalette.shadow, shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 1 },
   cardTitle: { ...Type.body, fontWeight: FontWeight.semibold },
 });

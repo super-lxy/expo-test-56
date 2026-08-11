@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { FontWeight, Type } from '@/constants/theme';
+import { AppPalette, FontWeight, Type } from '@/constants/theme';
 import { parseAmountToCents } from '@/shared/utils/currency';
 import { createAccount } from '../application/createAccount';
 import { findBrandAssets } from '../domain/account.brands';
@@ -105,12 +105,12 @@ const pk = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', paddingVertical: 8 },
   // 每格占 1/7，内部居中
   cell: { width: '14.285%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', marginVertical: 4 },
-  cellActive: { backgroundColor: '#3DC06B', borderRadius: 999 },
+  cellActive: { backgroundColor: AppPalette.primary, borderRadius: 999 },
   cellText: { ...Type.body, color: '#17212B' },
   cellTextActive: { color: '#FFFFFF', fontWeight: FontWeight.semibold },
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 16, paddingTop: 12 },
   cancelText: { ...Type.body, color: '#71808C' },
-  confirmBtn: { backgroundColor: '#3DC06B', borderRadius: 20, paddingHorizontal: 24, paddingVertical: 10 },
+  confirmBtn: { backgroundColor: AppPalette.primary, borderRadius: 20, paddingHorizontal: 24, paddingVertical: 10 },
   confirmText: { ...Type.body, color: '#FFFFFF', fontWeight: FontWeight.semibold },
 });
 
@@ -162,12 +162,12 @@ function StatusSegment({
 const seg = StyleSheet.create({
   wrap: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 8 },
   item: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 20, backgroundColor: '#F0F2F4' },
-  itemActive: { backgroundColor: '#E5F7EE' },
+  itemActive: { backgroundColor: AppPalette.expenseSoft },
   text: { ...Type.subhead, fontWeight: FontWeight.medium, color: '#71808C' },
-  textActive: { color: '#27A157', fontWeight: FontWeight.semibold },
+  textActive: { color: AppPalette.expense, fontWeight: FontWeight.semibold },
   compactWrap: { width: 158, justifyContent: 'center', gap: 6 },
   compactItem: { width: 76, alignItems: 'center', paddingHorizontal: 7, paddingVertical: 6 },
-  compactItemActive: { backgroundColor: '#A9DDB4' },
+  compactItemActive: { backgroundColor: AppPalette.primary },
   compactTextActive: { color: '#FFFFFF' },
 });
 
@@ -470,7 +470,7 @@ export function AccountFormScreen() {
                   <Switch
                     value={syncLedger}
                     onValueChange={setSyncLedger}
-                    trackColor={{ false: '#E0E5EA', true: '#28C85A' }}
+                    trackColor={{ false: AppPalette.lineStrong, true: AppPalette.income }}
                     thumbColor="#FFFFFF"
                     style={s.simpleSwitch}
                   />
@@ -506,7 +506,7 @@ export function AccountFormScreen() {
               <Switch
                 value={includeInNetWorth}
                 onValueChange={setIncludeInNetWorth}
-                trackColor={{ false: '#E0E5EA', true: '#28C85A' }}
+                trackColor={{ false: AppPalette.lineStrong, true: AppPalette.income }}
                 thumbColor="#FFFFFF"
                 style={s.simpleSwitch}
               />
@@ -564,7 +564,7 @@ const s = StyleSheet.create({
     shadowRadius: 7,
     elevation: 1,
   },
-  cardGreenBorder: { borderLeftWidth: 4, borderLeftColor: '#3DC06B' },
+  cardGreenBorder: { borderLeftWidth: 4, borderLeftColor: AppPalette.expense },
   cardTitle: { ...Type.subhead, fontWeight: FontWeight.semibold, color: '#71808C' },
   simpleCardTitle: { ...Type.body, fontWeight: FontWeight.semibold, color: '#171717' },
   cardTitleDark: { ...Type.body, fontWeight: FontWeight.semibold, color: '#17212B' },
@@ -590,7 +590,7 @@ const s = StyleSheet.create({
   // 账单日期行
   dayRow: { backgroundColor: '#F5F7FA', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, gap: 4 },
   dayLabel: { ...Type.footnote, color: '#71808C' },
-  dayLabelActive: { color: '#3DC06B' },
+  dayLabelActive: { color: AppPalette.expense },
   dayValue: { ...Type.title, fontWeight: FontWeight.semibold, color: '#17212B' },
   creditDateRow: { flexDirection: 'row', gap: 8 },
   creditDateItem: { flex: 1, minHeight: 60, borderRadius: 13, paddingHorizontal: 11, paddingVertical: 8, justifyContent: 'center', gap: 2, backgroundColor: '#F7F7F7' },
@@ -602,16 +602,16 @@ const s = StyleSheet.create({
   simpleSwitch: { transform: [{ scaleX: 0.96 }, { scaleY: 0.96 }] },
   syncHeader: { minHeight: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   syncTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  syncAccent: { width: 5, height: 17, borderRadius: 999, backgroundColor: '#B9E7C6' },
+  syncAccent: { width: 5, height: 17, borderRadius: 999, backgroundColor: AppPalette.expense },
   borderTop: { borderTopWidth: 1, borderTopColor: '#F0F2F4', paddingTop: 12, marginTop: -4 },
   // 资产状态行（label 在按钮组底端左侧）
   statusRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 },
   simpleStatusRow: { minHeight: 62 },
   simpleNetWorthRow: { paddingTop: 5 },
-  submitButton: { backgroundColor: '#3DC06B', borderRadius: 16, alignItems: 'center', paddingVertical: 17, marginTop: 8 },
-  simpleSubmitButton: { borderRadius: 999, marginHorizontal: 10, marginTop: 8, marginBottom: 6, paddingVertical: 13, backgroundColor: '#91D19F' },
-  submitButtonDisabled: { backgroundColor: '#B8DDBF' },
+  submitButton: { backgroundColor: AppPalette.primary, borderRadius: 16, alignItems: 'center', paddingVertical: 17, marginTop: 8 },
+  simpleSubmitButton: { borderRadius: 999, marginHorizontal: 10, marginTop: 8, marginBottom: 6, paddingVertical: 13, backgroundColor: AppPalette.primary },
+  submitButtonDisabled: { backgroundColor: AppPalette.lineStrong },
   submitButtonPressed: { opacity: 0.82 },
   submitText: { ...Type.body, color: '#FFFFFF', fontWeight: FontWeight.semibold },
-  simpleSubmitText: { ...Type.headline, color: '#111111', fontWeight: FontWeight.medium },
+  simpleSubmitText: { ...Type.headline, color: AppPalette.surface, fontWeight: FontWeight.semibold },
 });

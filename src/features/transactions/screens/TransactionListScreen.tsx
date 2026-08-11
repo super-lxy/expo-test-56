@@ -4,6 +4,7 @@ import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useHideTabBarOnScroll } from '@/hooks/use-hide-tab-bar-on-scroll';
 
+import { AppBackground } from '@/components/app-background';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { FontWeight, Glyph, Spacing, Type } from '@/constants/theme';
@@ -63,6 +64,7 @@ export function TransactionListScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      <AppBackground />
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
           <ThemedText type="title">全部账单</ThemedText>

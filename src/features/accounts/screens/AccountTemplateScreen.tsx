@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { FontWeight, Type } from '@/constants/theme';
+import { AppPalette, FontWeight, Type } from '@/constants/theme';
 import { AccountTemplateCard } from '../components/AccountTemplateCard';
 import { TEMPLATE_GROUPS } from '../domain/account.templates';
 
@@ -74,8 +74,8 @@ const styles = StyleSheet.create({
   tabBarWrap: { flex: 1 },
   tabBar: { flexGrow: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingHorizontal: 50 },
   tab: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 15 },
-  tabActive: { backgroundColor: '#303647' },
-  tabText: { ...Type.subhead, fontWeight: FontWeight.semibold, color: '#71808C' },
+  tabActive: { backgroundColor: AppPalette.primary },
+  tabText: { ...Type.subhead, fontWeight: FontWeight.semibold, color: AppPalette.textMuted },
   tabTextActive: { color: '#FFFFFF' },
   list: { paddingHorizontal: 18, paddingTop: 4, paddingBottom: 30, gap: 10 },
 });

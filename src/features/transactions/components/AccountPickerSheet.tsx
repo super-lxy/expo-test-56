@@ -4,7 +4,7 @@ import { Animated, Dimensions, Easing, Modal, Pressable, StyleSheet, View } from
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { FontWeight, Glyph, Numeric, Type } from '@/constants/theme';
+import { AppPalette, FontWeight, Glyph, Numeric, Type } from '@/constants/theme';
 import { findBrandAssets } from '@/features/accounts/domain/account.brands';
 import { findTemplate } from '@/features/accounts/domain/account.templates';
 import type { AccountBalance } from '@/features/accounts/domain/account.types';
@@ -64,11 +64,12 @@ export function AccountPickerSheet({
       ? '选择转出账户'
       : '选择账户';
   const selectedAccountId = activeKind === 'target' ? targetAccountId : sourceAccountId;
-  const availableAccounts = activeKind === 'target'
-    ? accounts.filter((account) => account.id !== sourceAccountId)
-    : accounts;
   const oppositeAccountId = activeKind === 'target' ? sourceAccountId : targetAccountId;
+  const availableAccounts = transferMode
+    ? accounts.filter((account) => account.id !== oppositeAccountId)
+    : accounts;
   const showExternalAccount = transferMode && oppositeAccountId !== EXTERNAL_TRANSFER_ACCOUNT_ID;
+  const externalAccountSelected = selectedAccountId === EXTERNAL_TRANSFER_ACCOUNT_ID;
   const visibleRowCount = availableAccounts.length + (showExternalAccount ? 1 : 0);
 
   useEffect(() => {
@@ -140,10 +141,10 @@ export function AccountPickerSheet({
             alwaysBounceVertical={false}>
             {showExternalAccount ? (
               <Pressable
-                style={[
+                style={({ pressed }) => [
                   styles.accountRow,
-                  styles.externalAccountRow,
                   availableAccounts.length === 0 && styles.accountRowLast,
+                  pressed && styles.accountRowPressed,
                 ]}
                 onPress={() => onSelect(activeKind, EXTERNAL_TRANSFER_ACCOUNT_ID)}>
                 <View style={[styles.accountIconBox, styles.externalAccountIconBox]}>
@@ -161,7 +162,7 @@ export function AccountPickerSheet({
                     {EXTERNAL_TRANSFER_ACCOUNT_DESCRIPTION}
                   </ThemedText>
                 </View>
-                {selectedAccountId === EXTERNAL_TRANSFER_ACCOUNT_ID ? (
+                {externalAccountSelected ? (
                   <ThemedText style={styles.checkmark}>✓</ThemedText>
                 ) : null}
               </Pressable>
@@ -175,9 +176,10 @@ export function AccountPickerSheet({
               return (
                 <Pressable
                   key={account.id}
-                  style={[
+                  style={({ pressed }) => [
                     styles.accountRow,
                     index === availableAccounts.length - 1 && styles.accountRowLast,
+                    pressed && styles.accountRowPressed,
                   ]}
                   onPress={() => onSelect(activeKind, account.id)}>
                   <View style={[styles.accountIconBox, !brand?.icon && { backgroundColor: `${account.color}22` }]}>
@@ -221,11 +223,11 @@ export function AccountPickerSheet({
 
 const styles = StyleSheet.create({
   modalRoot: { flex: 1, justifyContent: 'flex-end', paddingHorizontal: 12 },
-  backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(25, 28, 27, 0.38)' },
+  backdrop: { ...StyleSheet.absoluteFill, backgroundColor: AppPalette.overlay },
   sheet: {
     maxHeight: '78%',
     borderRadius: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: AppPalette.surface,
     overflow: 'hidden',
     paddingBottom: 8,
     shadowColor: '#1A1D1C',
@@ -241,21 +243,21 @@ const styles = StyleSheet.create({
   accountScroll: { flexShrink: 1 },
   accountList: { paddingHorizontal: 18, paddingTop: 4 },
   accountRow: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: '#F0F1F1' },
+  accountRowPressed: { opacity: 0.68 },
   accountRowLast: { borderBottomWidth: 0 },
   accountIconBox: { width: 40, height: 40, borderRadius: 20, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F4F5F4' },
   accountIconImage: { width: 36, height: 36, borderRadius: 18 },
   accountFallbackIcon: { ...Glyph.md },
-  externalAccountRow: { backgroundColor: '#FBFCFB' },
-  externalAccountIconBox: { backgroundColor: '#EEF2EF' },
+  externalAccountIconBox: { backgroundColor: 'rgba(255,255,255,0.82)', borderWidth: 1, borderColor: 'rgba(91,96,104,0.08)' },
   externalAccountIconImage: { width: 28, height: 28 },
   externalAccountDescription: { ...Type.caption, color: '#89928C' },
   accountCopy: { flex: 1, minWidth: 0, alignItems: 'flex-start', gap: 3 },
   accountLabel: { maxWidth: '100%', ...Type.body, fontWeight: FontWeight.semibold, color: '#2D332F' },
-  accountTypeBadge: { borderRadius: 5, paddingHorizontal: 5, paddingVertical: 1, backgroundColor: '#DDEFE1' },
-  accountTypeText: { ...Type.caption, color: '#527A5B', fontWeight: FontWeight.medium },
+  accountTypeBadge: { borderRadius: 5, paddingHorizontal: 5, paddingVertical: 1, backgroundColor: AppPalette.lavenderSoft },
+  accountTypeText: { ...Type.caption, color: AppPalette.inkSoft, fontWeight: FontWeight.medium },
   accountTrailing: { flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 7 },
   accountBalance: { ...Type.body, ...Numeric, fontWeight: FontWeight.semibold, textAlign: 'right' },
-  positiveBalance: { color: '#2B8B58' },
+  positiveBalance: { color: AppPalette.inkSoft },
   negativeBalance: { color: '#D94B5B' },
-  checkmark: { ...Type.subhead, fontWeight: FontWeight.semibold, color: '#3A6A8A' },
+  checkmark: { ...Type.subhead, fontWeight: FontWeight.semibold, color: '#C97594' },
 });

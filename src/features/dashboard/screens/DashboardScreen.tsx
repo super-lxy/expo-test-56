@@ -4,9 +4,10 @@ import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useHideTabBarOnScroll } from '@/hooks/use-hide-tab-bar-on-scroll';
 
+import { AppBackground } from '@/components/app-background';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { FontWeight, Glyph, Numeric, Spacing, Type } from '@/constants/theme';
+import { AppPalette, FontWeight, Glyph, Numeric, Spacing, Type } from '@/constants/theme';
 import { useAccounts } from '@/features/accounts/hooks/useAccounts';
 import { TransactionDetailModal } from '@/features/transactions/components/TransactionDetailModal';
 import { TransactionDayHeader, TransactionItem } from '@/features/transactions/components/TransactionItem';
@@ -86,6 +87,7 @@ export function DashboardScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      <AppBackground />
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} onScroll={onScroll} scrollEventThrottle={16}>
           <View style={styles.topBar}>
@@ -114,7 +116,7 @@ export function DashboardScreen() {
                 <ThemedText style={styles.ledgerName}>我的演示账本</ThemedText>
                 <View style={styles.summaryHeader}>
                   <ThemedText style={styles.totalAssets}>{formatCurrency(netWorth)}</ThemedText>
-                  <ThemedText style={[styles.changeText, { color: monthlyChange >= 0 ? '#2D9D6A' : '#D96C55' }]}>
+                  <ThemedText style={[styles.changeText, { color: monthlyChange >= 0 ? AppPalette.income : AppPalette.expense }]}>
                     {monthlyChange >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(monthlyChange))}
                   </ThemedText>
                 </View>
@@ -189,29 +191,29 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 10, paddingTop: Spacing.two, paddingBottom: 110, gap: 8 },
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   brandBlock: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  brandIcon: { width: 32, height: 32, borderRadius: 10, backgroundColor: '#F2E4D7', alignItems: 'center', justifyContent: 'center' },
-  brandIconText: { ...Glyph.sm, fontWeight: FontWeight.bold, color: '#B96B48' },
+  brandIcon: { width: 32, height: 32, borderRadius: 10, backgroundColor: AppPalette.expenseSoft, alignItems: 'center', justifyContent: 'center' },
+  brandIconText: { ...Glyph.sm, fontWeight: FontWeight.bold, color: AppPalette.expense },
   brandName: { ...Type.headline, fontWeight: FontWeight.bold, letterSpacing: -0.2 },
-  menu: { ...Glyph.lg, color: '#71808C' },
-  segmentedControl: { flexDirection: 'row', backgroundColor: '#ECEDEF', borderRadius: 13, padding: 3 },
+  menu: { ...Glyph.lg, color: AppPalette.textMuted },
+  segmentedControl: { flexDirection: 'row', backgroundColor: AppPalette.surfaceMuted, borderRadius: 13, padding: 3 },
   segment: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 11 },
-  segmentSelected: { backgroundColor: '#FFFFFF', shadowColor: '#4A6670', shadowOpacity: 0.08, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
-  segmentText: { ...Type.body, color: '#899099', fontWeight: FontWeight.regular },
+  segmentSelected: { backgroundColor: AppPalette.surface, shadowColor: AppPalette.shadow, shadowOpacity: 0.08, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+  segmentText: { ...Type.body, color: AppPalette.textMuted, fontWeight: FontWeight.regular },
   segmentTextSelected: { ...Type.body, fontWeight: FontWeight.semibold },
-  summaryCard: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 13, gap: 8, borderWidth: 1, borderColor: '#ECEDEF', shadowColor: '#5F6870', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
+  summaryCard: { backgroundColor: AppPalette.surface, borderRadius: 18, padding: 13, gap: 8, borderWidth: 1, borderColor: AppPalette.line, shadowColor: AppPalette.shadow, shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
   summaryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
   ledgerName: { ...Type.subhead, fontWeight: FontWeight.medium, color: '#353A40' },
-  changeText: { ...Type.footnote, ...Numeric, color: '#D96C55', fontWeight: FontWeight.semibold },
-  totalAssets: { ...Type.display, ...Numeric, fontWeight: FontWeight.bold, color: '#1D2329' },
-  divider: { height: 1, backgroundColor: '#ECEDEF' },
+  changeText: { ...Type.footnote, ...Numeric, color: AppPalette.expense, fontWeight: FontWeight.semibold },
+  totalAssets: { ...Type.display, ...Numeric, fontWeight: FontWeight.bold, color: AppPalette.ink },
+  divider: { height: 1, backgroundColor: AppPalette.line },
   summaryMetrics: { flexDirection: 'row', alignItems: 'stretch' },
   metric: { flex: 1, gap: 3 },
   metricAmount: { ...Type.headline, ...Numeric, fontWeight: FontWeight.semibold, color: '#252B31' },
-  metricDivider: { width: 1, backgroundColor: '#ECEDEF', marginHorizontal: 10 },
+  metricDivider: { width: 1, backgroundColor: AppPalette.line, marginHorizontal: 10 },
   transactionCard: { paddingTop: 5, paddingBottom: 2 },
   monthHeader: { paddingHorizontal: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   monthTitle: { ...Type.headline, fontWeight: FontWeight.semibold },
-  transactionDivider: { height: 1, backgroundColor: '#E5E8EB', marginTop: 9, marginBottom: 4 },
+  transactionDivider: { height: 1, backgroundColor: AppPalette.line, marginTop: 9, marginBottom: 4 },
   dayHeader: { paddingTop: 11, paddingBottom: 3 },
   dayGroup: { marginBottom: 0 },
   emptyState: { alignItems: 'center', paddingVertical: Spacing.five, gap: Spacing.one },

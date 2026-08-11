@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { FontWeight, Glyph, Numeric, Type } from '@/constants/theme';
+import { AppPalette, FontWeight, Glyph, Numeric, Type } from '@/constants/theme';
 import { CategoryIcon } from '@/features/categories/components/CategoryIcon';
 import { EXTERNAL_TRANSFER_ACCOUNT_ID } from '@/features/accounts/domain/systemAccounts';
 import type { Transaction } from '../domain/transaction.types';
@@ -46,18 +46,18 @@ export function TransactionItem({
         ? '+'
         : '-';
   const color = isInitialBalance
-    ? initialBalancePrefix === '-' ? '#E06B52' : '#167C80'
+    ? initialBalancePrefix === '-' ? AppPalette.expense : AppPalette.income
     : isTransfer
-      ? '#17212B'
+      ? AppPalette.ink
       : isIncome
-        ? '#167C80'
-        : '#E06B52';
+        ? AppPalette.income
+        : AppPalette.expense;
   const accentColor = isInternalTransfer
     ? '#5B7184'
     : transaction.categoryColor;
-  const cardBackground = '#FFFFFF';
-  const cardBorderColor = '#E2E6E9';
-  const iconBackground = '#F1F3F4';
+  const cardBackground = AppPalette.surface;
+  const cardBorderColor = AppPalette.line;
+  const iconBackground = AppPalette.surfaceMuted;
   const title = isInternalTransfer
     ? '内部转账'
     : transaction.categoryName;
@@ -112,7 +112,7 @@ export function TransactionItem({
                 <CategoryIcon
                   icon={transaction.categoryIcon}
                   iconType={transaction.categoryIconType}
-                  imageSize={28}
+                  boxSize={36}
                   textStyle={styles.iconText}
                 />
               </View>

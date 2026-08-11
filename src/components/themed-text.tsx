@@ -1,6 +1,6 @@
 import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
 
-import { FontWeight, Fonts, ThemeColor, Type } from '@/constants/theme';
+import { AppPalette, FontWeight, Fonts, ThemeColor, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type ThemedTextProps = TextProps & {
@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
   linkPrimary: {
     ...Type.body,
     lineHeight: 26,
-    color: '#3c87f7',
+    color: AppPalette.expense,
   },
   code: {
     ...Type.footnote,

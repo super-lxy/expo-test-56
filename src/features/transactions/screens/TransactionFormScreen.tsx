@@ -5,9 +5,10 @@ import DateTimePicker, { type DateTimePickerEvent } from '@react-native-communit
 import { Alert, Keyboard, Modal, Platform, Pressable, ScrollView, StatusBar, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppBackground } from '@/components/app-background';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { FontWeight, Glyph, Numeric, Type } from '@/constants/theme';
+import { AppPalette, FontWeight, Glyph, Numeric, Type } from '@/constants/theme';
 import { findBrandAssets } from '@/features/accounts/domain/account.brands';
 import { EXTERNAL_TRANSFER_ACCOUNT_ID } from '@/features/accounts/domain/systemAccounts';
 import type { Category } from '@/features/categories/domain/category.types';
@@ -292,7 +293,8 @@ export function TransactionFormScreen() {
   if (isLoadingExisting || waitingForFormData) {
     return (
       <ThemedView style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="#F5F7FA" />
+        <StatusBar barStyle="dark-content" backgroundColor="#F5DDE6" />
+        <AppBackground />
         <SafeAreaView edges={['top', 'bottom']} style={styles.loadingContainer}>
           <ThemedText style={styles.loadingText}>正在读取账单…</ThemedText>
         </SafeAreaView>
@@ -302,7 +304,8 @@ export function TransactionFormScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F5F7FA" />
+      <StatusBar barStyle="dark-content" backgroundColor="#F5DDE6" />
+      <AppBackground />
       <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
         <View style={styles.topPanel}>
           <View style={styles.header}>
@@ -351,7 +354,6 @@ export function TransactionFormScreen() {
               targetExternal={targetAccountIsExternal}
               adjustmentMode={transferAdjustmentMode}
               adjustmentAmount={transferAdjustment}
-              adjustmentActive={activeAmountField === 'adjustment'}
               onSelectSource={() => openAccountPicker('source')}
               onSelectTarget={() => openAccountPicker('target')}
               onAdjustmentModeChange={(mode) => {
@@ -416,7 +418,7 @@ export function TransactionFormScreen() {
                   : '转账金额'}
               </ThemedText>
             ) : null}
-            <ThemedText style={[styles.amountPreview, { color: type === 'income' ? '#2D7185' : type === 'transfer' ? '#6A6A74' : '#D85C50' }]}>¥{type === 'transfer' && activeAmountField === 'adjustment' ? (transferAdjustment || '0.00') : (amount || '0.00')}</ThemedText>
+            <ThemedText style={[styles.amountPreview, { color: type === 'income' ? AppPalette.income : type === 'transfer' ? AppPalette.inkSoft : AppPalette.expense }]}>¥{type === 'transfer' && activeAmountField === 'adjustment' ? (transferAdjustment || '0.00') : (amount || '0.00')}</ThemedText>
           </Pressable>
         </View>
         {/* 键盘区始终保留在布局中，切换时只改 opacity + pointerEvents，
@@ -462,8 +464,14 @@ export function TransactionFormScreen() {
           onClose={closeAccountPicker}
           onClosed={handleAccountPickerClosed}
           onSelect={(pickerKind, nextAccountId) => {
-            if (pickerKind === 'target') setTransferAccountId(nextAccountId);
-            else setAccountId(nextAccountId);
+            if (pickerKind === 'target') {
+              setTransferAccountId(nextAccountId);
+            } else {
+              // 当前转入账户可能是 render 时推导出的备用值。
+              // 先把它固化到 state，避免更换转出账户时转入账户跟着重新推导。
+              if (type === 'transfer') setTransferAccountId(effectiveTransferAccountId);
+              setAccountId(nextAccountId);
+            }
             closeAccountPicker();
           }}
         />
@@ -473,18 +481,18 @@ export function TransactionFormScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
-  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: AppPalette.surface },
+  safeArea: { flex: 1, backgroundColor: 'transparent' },
+  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' },
   loadingText: { ...Type.body, color: '#71808C', fontWeight: FontWeight.medium },
-  topPanel: { backgroundColor: '#F5F7FA', paddingHorizontal: 8, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: '#EEF0F2' },
+  topPanel: { backgroundColor: 'rgba(255,255,255,0.42)', paddingHorizontal: 8, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.66)' },
   header: { minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerSideButton: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
   back: { fontSize: 32, lineHeight: 34, color: '#17212B', fontWeight: FontWeight.regular },
   typeBar: { flex: 1 },
   typeBarContent: { flexGrow: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 2 },
   typeItem: { paddingHorizontal: 7, paddingVertical: 6, borderRadius: 16 },
-  activeType: { backgroundColor: '#1C2128' },
+  activeType: { backgroundColor: AppPalette.primary },
   typeText: { ...Type.body, fontWeight: FontWeight.semibold, color: '#71808C' },
   activeTypeText: { color: '#FFFFFF' },
   disabledTypeItem: { opacity: 0.45 },
@@ -492,15 +500,15 @@ const styles = StyleSheet.create({
   settings: { ...Glyph.md, color: '#71808C' },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 4 },
-  quickOptions: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 9, paddingVertical: 6, gap: 5, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#EEF0F2' },
+  quickOptions: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 9, paddingVertical: 6, gap: 5, backgroundColor: 'rgba(255,255,255,0.78)', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.82)' },
   // 药丸形带描边，参考图样式
-  quickOption: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 15, backgroundColor: '#F3F5F6' },
-  accountQuickOption: { maxWidth: 112, backgroundColor: '#EEF4F1' },
+  quickOption: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 15, backgroundColor: 'rgba(241,243,245,0.88)' },
+  accountQuickOption: { maxWidth: 112, backgroundColor: 'rgba(229,246,248,0.92)' },
   quickAccountIconBox: { width: 18, height: 18, borderRadius: 9, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
   quickAccountIcon: { width: 17, height: 17, borderRadius: 8.5 },
   quickOptionIcon: { fontSize: 13, lineHeight: 16 },
   quickText: { ...Type.footnote, fontWeight: FontWeight.medium, color: '#3A4249' },
-  inputBar: { minHeight: 50, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, gap: 6, borderTopWidth: 1, borderColor: '#E6E9E7', backgroundColor: '#FFFFFF' },
+  inputBar: { minHeight: 50, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, gap: 6, borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.86)', backgroundColor: 'rgba(255,255,255,0.84)' },
   noteToggle: { width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: '#C8CDD2', alignItems: 'center', justifyContent: 'center' },
   noteToggleIcon: { fontSize: 11, lineHeight: 14, color: '#8C96A0', fontWeight: FontWeight.medium, marginTop: -1 },
   noteInput: { flex: 1, minWidth: 70, ...Type.body, paddingVertical: 8, color: '#6E7772' },
@@ -510,9 +518,9 @@ const styles = StyleSheet.create({
   amountPreview: { ...Type.title, ...Numeric, fontWeight: FontWeight.bold, minWidth: 78, textAlign: 'right' },
   amountPreviewButton: { alignItems: 'flex-end', justifyContent: 'center' },
   amountFieldLabel: { ...Type.caption, color: '#8A9298', lineHeight: 13 },
-  pickerBackdrop: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: 'rgba(20, 28, 32, 0.35)' },
+  pickerBackdrop: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: AppPalette.overlay },
   pickerCard: { borderRadius: 20, padding: 18, backgroundColor: '#FFFFFF', alignItems: 'center', gap: 12 },
   pickerTitle: { ...Type.headline, fontWeight: FontWeight.semibold },
-  pickerDone: { alignSelf: 'stretch', alignItems: 'center', borderRadius: 12, paddingVertical: 11, backgroundColor: '#167C80' },
+  pickerDone: { alignSelf: 'stretch', alignItems: 'center', borderRadius: 12, paddingVertical: 11, backgroundColor: AppPalette.primary },
   pickerDoneText: { ...Type.body, color: '#FFFFFF', fontWeight: FontWeight.semibold },
 });

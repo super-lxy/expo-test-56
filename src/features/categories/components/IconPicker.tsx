@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { FontWeight, Glyph, Type } from '@/constants/theme';
+import { AppPalette, FontWeight, Glyph, Type } from '@/constants/theme';
 import { ICON_GROUPS, suggestIcons } from '../domain/category.icons';
 
 const COLUMNS = 6;
@@ -81,12 +81,12 @@ const styles = StyleSheet.create({
   tabBarWrap: { flexGrow: 0, flexShrink: 0 },
   tabBar: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 2 },
   tab: { paddingHorizontal: 13, paddingVertical: 6, borderRadius: 16, backgroundColor: '#EDF0F2' },
-  tabActive: { backgroundColor: '#167C80' },
+  tabActive: { backgroundColor: AppPalette.primary },
   tabText: { ...Type.subhead, fontWeight: FontWeight.medium, color: '#71808C' },
   tabTextActive: { color: '#FFFFFF', fontWeight: FontWeight.semibold },
   grid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 10, marginTop: 14 },
   cell: { width: `${100 / COLUMNS}%`, alignItems: 'center' },
   cellInner: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#F1F3F4', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: 'transparent' },
-  cellInnerSelected: { backgroundColor: '#DDF3F0', borderColor: '#167C80' },
+  cellInnerSelected: { backgroundColor: AppPalette.expenseSoft, borderColor: AppPalette.expense },
   icon: { ...Glyph.lg },
 });

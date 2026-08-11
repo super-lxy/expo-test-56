@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { FontWeight, Numeric, Type } from '@/constants/theme';
+import { AppPalette, FontWeight, Numeric, Type } from '@/constants/theme';
 
 const KEYS = [
   ['1', '2', '3', '⌫'],
@@ -53,10 +53,10 @@ export function TransactionKeypad({
 }
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: '#EFF0F2', paddingHorizontal: 9, paddingVertical: 7, gap: 4 },
+  container: { backgroundColor: AppPalette.surfaceMuted, paddingHorizontal: 9, paddingVertical: 7, gap: 4 },
   row: { flexDirection: 'row', gap: 4 },
   key: { flex: 1, height: 55, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
-  saveKey: { backgroundColor: '#1C2128' },
+  saveKey: { backgroundColor: AppPalette.primary },
   keyText: { ...Type.title, ...Numeric, color: '#2D3A45', fontWeight: FontWeight.regular },
   /**
    * 「保存」「再记」是中文双字键：跟随文本阶梯而非数字键的字号，

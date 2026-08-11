@@ -6,7 +6,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { FontWeight, Type } from '@/constants/theme';
+import { AppPalette, FontWeight, Type } from '@/constants/theme';
 import { useCategoryRepository } from '@/features/transactions/hooks/useTransactions';
 import { createCategory } from '../application/createCategory';
 import { CategoryIcon } from '../components/CategoryIcon';
@@ -180,7 +180,7 @@ export function CategoryFormScreen() {
                 maxLength={12}
               />
               <View style={styles.previewIconBox}>
-                <CategoryIcon icon={effectiveIcon} iconType={iconType} imageSize={28} textStyle={styles.previewIcon} />
+                <CategoryIcon icon={effectiveIcon} iconType={iconType} boxSize={34} textStyle={styles.previewIcon} />
               </View>
             </View>
           </View>
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
   back: { fontSize: 32, lineHeight: 34, fontWeight: FontWeight.regular, color: '#17212B' },
   title: { ...Type.headline, fontWeight: FontWeight.semibold },
   customButton: { justifyContent: 'flex-end', gap: 5, borderRadius: 17, paddingHorizontal: 8, backgroundColor: '#EEF1F2' },
-  customButtonIcon: { ...Type.subhead, color: '#167C80' },
+  customButtonIcon: { ...Type.subhead, color: AppPalette.expense },
   customButtonText: { ...Type.subhead, fontWeight: FontWeight.semibold, color: '#37434B' },
   content: { paddingHorizontal: 14, paddingTop: 10, paddingBottom: 20, gap: 12 },
   card: { borderRadius: 16, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#ECEDEF', paddingHorizontal: 14 },
@@ -295,12 +295,12 @@ const styles = StyleSheet.create({
   pickerTitle: { ...Type.body, fontWeight: FontWeight.semibold },
   pickerMode: { ...Type.footnote, color: '#8A949C' },
   footer: { paddingHorizontal: 14, paddingTop: 10, paddingBottom: 6 },
-  submitButton: { backgroundColor: '#167C80', borderRadius: 16, alignItems: 'center', paddingVertical: 16 },
+  submitButton: { backgroundColor: AppPalette.primary, borderRadius: 16, alignItems: 'center', paddingVertical: 16 },
   submitDisabled: { opacity: 0.4 },
   submitPressed: { opacity: 0.85 },
   submitText: { ...Type.body, color: '#FFFFFF', fontWeight: FontWeight.semibold },
   customModalRoot: { flex: 1, justifyContent: 'flex-end', paddingHorizontal: 12 },
-  customBackdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(20, 26, 30, 0.42)' },
+  customBackdrop: { ...StyleSheet.absoluteFill, backgroundColor: AppPalette.overlay },
   customSheet: { borderRadius: 24, paddingHorizontal: 18, paddingTop: 12, paddingBottom: 18, backgroundColor: '#FFFFFF', alignItems: 'center', shadowColor: '#1A1D1C', shadowOpacity: 0.2, shadowRadius: 20, shadowOffset: { width: 0, height: 8 }, elevation: 10 },
   customSheetHeader: { alignSelf: 'stretch', minHeight: 42, flexDirection: 'row', alignItems: 'center' },
   customCloseButton: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0F2F3' },
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
   changeImageBar: { position: 'absolute', left: 0, right: 0, bottom: 0, minHeight: 42, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(28, 33, 40, 0.58)' },
   changeImageText: { ...Type.body, color: '#FFFFFF', fontWeight: FontWeight.semibold },
   customHint: { marginTop: 14, textAlign: 'center' },
-  confirmCustomButton: { alignSelf: 'stretch', marginTop: 18, borderRadius: 18, alignItems: 'center', paddingVertical: 15, backgroundColor: '#A8DDB1' },
+  confirmCustomButton: { alignSelf: 'stretch', marginTop: 18, borderRadius: 18, alignItems: 'center', paddingVertical: 15, backgroundColor: AppPalette.primary },
   confirmCustomDisabled: { opacity: 0.42 },
-  confirmCustomText: { ...Type.headline, color: '#17212B', fontWeight: FontWeight.semibold },
+  confirmCustomText: { ...Type.headline, color: AppPalette.surface, fontWeight: FontWeight.semibold },
 });

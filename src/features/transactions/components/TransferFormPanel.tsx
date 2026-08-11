@@ -40,12 +40,14 @@ function AccountField({
         ]}>
           {external ? (
             <Image
+              key="external-transfer-account"
               source={externalTransferCardAsset}
               style={styles.externalAccountIconImage}
               contentFit="contain"
             />
           ) : brand?.icon ? (
             <Image
+              key={`account-brand-${account?.id ?? account?.type ?? 'unknown'}`}
               source={brand.icon}
               style={styles.accountIconImage}
               contentFit={brand.iconFit ?? 'contain'}
@@ -83,7 +85,6 @@ export function TransferFormPanel({
   targetExternal = false,
   adjustmentMode,
   adjustmentAmount,
-  adjustmentActive,
   onSelectSource,
   onSelectTarget,
   onAdjustmentModeChange,
@@ -95,7 +96,6 @@ export function TransferFormPanel({
   targetExternal?: boolean;
   adjustmentMode: TransferAdjustmentMode;
   adjustmentAmount: string;
-  adjustmentActive: boolean;
   onSelectSource: () => void;
   onSelectTarget: () => void;
   onAdjustmentModeChange: (mode: TransferAdjustmentMode) => void;
@@ -135,7 +135,6 @@ export function TransferFormPanel({
           onPress={onAdjustmentPress}
           style={({ pressed }) => [
             styles.adjustmentField,
-            adjustmentActive && styles.adjustmentFieldActive,
             pressed && styles.pressed,
           ]}>
           <View style={styles.adjustmentIcon}><ThemedText style={styles.adjustmentIconText}>¥±</ThemedText></View>
@@ -178,7 +177,7 @@ const styles = StyleSheet.create({
   accountIcon: { width: 38, height: 38, borderRadius: 19, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
   accountIconImage: { width: 32, height: 32, borderRadius: 16 },
   accountFallbackIcon: { fontSize: 17, color: '#7C858C' },
-  externalAccountIcon: { backgroundColor: '#EEF2EF' },
+  externalAccountIcon: { backgroundColor: 'rgba(255,255,255,0.76)', borderWidth: 1, borderColor: 'rgba(91,96,104,0.08)' },
   externalAccountIconImage: { width: 27, height: 27 },
   externalAccountDescription: { ...Type.caption, color: '#89928C' },
   accountInfo: { flex: 1, minWidth: 0, gap: 1 },
@@ -194,16 +193,15 @@ const styles = StyleSheet.create({
   directionText: { ...Type.subhead, fontWeight: FontWeight.semibold },
   adjustmentRow: { flexDirection: 'row', alignItems: 'stretch', gap: 8, marginTop: 2 },
   adjustmentField: { flex: 1, minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 9, borderRadius: 17, borderWidth: 1, borderColor: '#ECEEEF', paddingHorizontal: 11, backgroundColor: '#F7F8F8' },
-  adjustmentFieldActive: { borderColor: '#8BCB98', backgroundColor: '#F2FAF4' },
   adjustmentIcon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
   adjustmentIconText: { ...Type.subhead, fontWeight: FontWeight.bold, color: '#78838B' },
   adjustmentInfo: { flex: 1, gap: 1 },
   adjustmentAmount: { ...Type.body, ...Numeric, fontWeight: FontWeight.semibold },
   modeControl: { width: 108, flexDirection: 'row', borderRadius: 17, padding: 3, backgroundColor: '#F0F2F3' },
-  modeButton: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 15, paddingHorizontal: 5 },
-  modeButtonActive: { backgroundColor: '#A6DDAF' },
+  modeButton: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 15, borderWidth: 1, borderColor: 'transparent', paddingHorizontal: 5 },
+  modeButtonActive: { backgroundColor: '#F9E9EF', borderColor: 'rgba(201,117,148,0.24)' },
   modeText: { ...Type.footnote, fontWeight: FontWeight.semibold, color: '#737D84' },
-  modeTextActive: { color: '#FFFFFF' },
+  modeTextActive: { color: '#B95F81' },
   hintCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 7, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: '#F6F7F8' },
   hintIcon: { ...Type.subhead, color: '#98A1A8', marginTop: 1 },
   hintText: { flex: 1, lineHeight: 18 },

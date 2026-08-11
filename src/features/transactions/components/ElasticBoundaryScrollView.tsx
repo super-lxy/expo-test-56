@@ -12,6 +12,8 @@ import {
   View,
 } from 'react-native';
 
+import { AppPalette } from '@/constants/theme';
+
 const MAX_PULL = 74;
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const ARC_DIAMETER = SCREEN_WIDTH * 1.45;
@@ -210,7 +212,7 @@ const styles = StyleSheet.create({
     width: ARC_DIAMETER,
     height: ARC_DIAMETER,
     borderRadius: ARC_DIAMETER / 2,
-    backgroundColor: '#B9DCC1',
+    backgroundColor: AppPalette.cyanSoft,
   },
   bottomArc: {
     position: 'absolute',
@@ -219,6 +221,6 @@ const styles = StyleSheet.create({
     width: ARC_DIAMETER,
     height: ARC_DIAMETER,
     borderRadius: ARC_DIAMETER / 2,
-    backgroundColor: '#B9DCC1',
+    backgroundColor: AppPalette.cyanSoft,
   },
 });

@@ -3,7 +3,7 @@ import { Animated, Dimensions, Easing, Modal, Pressable, StyleSheet, View } from
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { FontWeight, Glyph, Type } from '@/constants/theme';
+import { AppPalette, FontWeight, Glyph, Type } from '@/constants/theme';
 import { CategoryIcon } from '@/features/categories/components/CategoryIcon';
 import type { Category } from '@/features/categories/domain/category.types';
 import { ElasticBoundaryScrollView } from '@/features/transactions/components/ElasticBoundaryScrollView';
@@ -12,7 +12,7 @@ import { ElasticBoundaryScrollView } from '@/features/transactions/components/El
 const MAX_VISIBLE_ROWS = 6;
 const CHILD_ROW_HEIGHT = 56;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
-const CATEGORY_ICON_BACKGROUND = '#F1F3F4';
+const CATEGORY_ICON_BACKGROUND = 'rgba(255,255,255,0.68)';
 
 function rowsOf<T>(items: T[], size: number) {
   return Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, index * size + size));
@@ -149,16 +149,24 @@ export function CategoryGrid({
                 onPress={() => handleRootPress(item)}
                 style={styles.cell}>
                 <View style={styles.cellInner}>
-                  <View style={[styles.iconBox, isSelected && styles.iconBoxSelected]}>
+                  <View style={[
+                    styles.iconBox,
+                    isSelected && styles.iconBoxSelected,
+                    isSelected && (item.type === 'income' ? styles.iconBoxSelectedIncome : styles.iconBoxSelectedExpense),
+                  ]}>
                     <CategoryIcon
                       icon={displayCategory.icon}
                       iconType={displayCategory.iconType}
-                      imageSize={36}
+                      boxSize={46}
                       textStyle={styles.icon}
                     />
                     {realChildrenOf(item).length > 0 ? <View style={styles.moreBadge}><ThemedText style={styles.moreText}>⋯</ThemedText></View> : null}
                   </View>
-                  <ThemedText style={[styles.label, isSelected && styles.labelSelected]} numberOfLines={1}>{label}</ThemedText>
+                  <ThemedText style={[
+                    styles.label,
+                    isSelected && styles.labelSelected,
+                    isSelected && (item.type === 'income' ? styles.labelSelectedIncome : styles.labelSelectedExpense),
+                  ]} numberOfLines={1}>{label}</ThemedText>
                 </View>
               </Pressable>
             );
@@ -229,12 +237,14 @@ export function CategoryGrid({
                       setExpandedRootId(null);
                     }}>
                     <View style={styles.childIconBox}>
-                      <CategoryIcon icon={category.icon} iconType={category.iconType} imageSize={31} textStyle={styles.childIcon} />
+                      <CategoryIcon icon={category.icon} iconType={category.iconType} boxSize={40} textStyle={styles.childIcon} />
                     </View>
                     <ThemedText style={styles.childLabel} numberOfLines={1}>
                       {isDefaultChild(category, expandedRoot) ? category.name : `${expandedRoot.name}-${category.name}`}
                     </ThemedText>
-                    {category.id === selectedCategoryId ? <ThemedText style={styles.checkmark}>✓</ThemedText> : null}
+                    {category.id === selectedCategoryId ? (
+                      <ThemedText style={[styles.checkmark, category.type === 'income' && styles.checkmarkIncome]}>✓</ThemedText>
+                    ) : null}
                   </Pressable>
                 ))}
               </ElasticBoundaryScrollView>
@@ -253,18 +263,22 @@ const styles = StyleSheet.create({
   // 整格作为选中高亮的载体：圆角贴合内容，不需要固定尺寸
   cellInner: { alignItems: 'center', gap: 4, paddingVertical: 5 },
   // 圆角方块（squircle）而非圆形：emoji 本身是方形字形，圆底会在四角留下空隙
-  iconBox: { width: 46, height: 46, borderRadius: 14, backgroundColor: CATEGORY_ICON_BACKGROUND, alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  iconBoxSelected: { backgroundColor: '#E1E8EC' },
+  iconBox: { width: 46, height: 46, borderRadius: 14, backgroundColor: CATEGORY_ICON_BACKGROUND, borderWidth: 1, borderColor: 'rgba(91,96,104,0.08)', alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  iconBoxSelected: { transform: [{ scale: 1.045 }], shadowOpacity: 0.11, shadowRadius: 7, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
+  iconBoxSelectedExpense: { backgroundColor: '#FFF7F3', borderColor: 'rgba(232,133,91,0.52)', shadowColor: AppPalette.expense },
+  iconBoxSelectedIncome: { backgroundColor: '#F0FBF6', borderColor: 'rgba(55,180,128,0.46)', shadowColor: AppPalette.income },
   settingsIconBox: { backgroundColor: CATEGORY_ICON_BACKGROUND },
-  icon: { ...Glyph.lg },
+  icon: { fontSize: 24, lineHeight: 30 },
   label: { ...Type.footnote, fontWeight: FontWeight.regular, color: '#4A4C4A' },
-  labelSelected: { color: '#2B4B63', fontWeight: FontWeight.medium },
+  labelSelected: { fontWeight: FontWeight.semibold },
+  labelSelectedExpense: { color: '#D86F42' },
+  labelSelectedIncome: { color: '#239968' },
   settingsLabel: { color: '#71808C' },
   moreBadge: { position: 'absolute', right: -3, bottom: -1, width: 14, height: 14, borderRadius: 7, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
   moreText: { color: '#9AA2A9', fontSize: 8, lineHeight: 9, fontWeight: FontWeight.semibold },
   // 靠下浮动的完整卡片：四角全圆、四周留缝隙，不贴任何屏幕边缘
   modalRoot: { flex: 1, justifyContent: 'flex-end', paddingHorizontal: 12 },
-  backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(25, 28, 27, 0.38)' },
+  backdrop: { ...StyleSheet.absoluteFill, backgroundColor: AppPalette.overlay },
   sheet: {
     maxHeight: '78%',
     borderRadius: 20,
@@ -282,15 +296,16 @@ const styles = StyleSheet.create({
   sheetCloseText: { fontSize: 24, lineHeight: 26, fontWeight: FontWeight.regular, color: '#8C96A0' },
   sheetTitle: { flex: 1, ...Type.headline, fontWeight: FontWeight.semibold, textAlign: 'center' },
   sheetAddBtn: { minWidth: 30, alignItems: 'flex-end', justifyContent: 'center', paddingHorizontal: 2 },
-  sheetAddText: { ...Type.body, color: '#167C80', fontWeight: FontWeight.semibold },
+  sheetAddText: { ...Type.body, color: AppPalette.expense, fontWeight: FontWeight.semibold },
   // 不设 flexGrow: 0 —— 行数超限时靠内联 height 限高，未超限时按内容自然高度
   childScroll: { flexShrink: 1 },
   childList: { paddingHorizontal: 18, paddingTop: 4 },
   childRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 13, borderBottomWidth: 1, borderBottomColor: '#F0F1F1' },
   // 末行不画分隔线，避免与卡片底部留白之间出现一道悬空的横线
   childRowLast: { borderBottomWidth: 0 },
-  childIconBox: { width: 40, height: 40, borderRadius: 12, backgroundColor: CATEGORY_ICON_BACKGROUND, alignItems: 'center', justifyContent: 'center' },
-  childIcon: { ...Glyph.md },
+  childIconBox: { width: 40, height: 40, borderRadius: 12, backgroundColor: CATEGORY_ICON_BACKGROUND, borderWidth: 1, borderColor: 'rgba(91,96,104,0.07)', alignItems: 'center', justifyContent: 'center' },
+  childIcon: { fontSize: 21, lineHeight: 26 },
   childLabel: { flex: 1, ...Type.body, fontWeight: FontWeight.medium, color: '#2D332F' },
-  checkmark: { ...Glyph.md, fontWeight: FontWeight.semibold, color: '#3A6A8A' },
+  checkmark: { ...Glyph.md, fontWeight: FontWeight.semibold, color: AppPalette.expense },
+  checkmarkIncome: { color: AppPalette.income },
 });

@@ -8,9 +8,10 @@ import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture
 import Animated, { FadeIn, FadeInDown, FadeOut, LinearTransition, type SharedValue, useAnimatedStyle } from 'react-native-reanimated';
 import { useHideTabBarOnScroll } from '@/hooks/use-hide-tab-bar-on-scroll';
 
+import { AppBackground } from '@/components/app-background';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { FontWeight, Glyph, Numeric, Type } from '@/constants/theme';
+import { AppPalette, FontWeight, Glyph, Numeric, Type } from '@/constants/theme';
 import { findBrandAssets } from '@/features/accounts/domain/account.brands';
 import type { AccountBalance } from '@/features/accounts/domain/account.types';
 import { findTemplate } from '@/features/accounts/domain/account.templates';
@@ -19,7 +20,6 @@ import { NetWorthChart } from '@/features/dashboard/components/NetWorthChart';
 import { buildNetWorthTrend } from '@/features/dashboard/domain/netWorth';
 import { useMonthlySummary, useTransactions } from '@/features/transactions/hooks/useTransactions';
 import { formatCurrency } from '@/shared/utils/currency';
-import { buildAssetBreakdown } from '../domain/assetBuckets';
 
 function formatPercent(value: number, total: number) {
   if (!total) return '0%';
@@ -351,7 +351,6 @@ export function AssetsScreen() {
     .reduce((sum, a) => sum + Math.abs(a.balanceCents), 0);
   const netWorth = totalAssets - totalLiabilities;
   const monthlyChange = summary.incomeCents - summary.expenseCents;
-  const slices = useMemo(() => buildAssetBreakdown(netWorthAccounts), [netWorthAccounts]);
   const trend = useMemo(() => buildNetWorthTrend(netWorthAccounts, transactions), [netWorthAccounts, transactions]);
   const assetCount = accounts.filter((account) => account.kind !== 'liability').length;
   const liabilityCount = accounts.length - assetCount;
@@ -390,6 +389,7 @@ export function AssetsScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      <AppBackground />
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <ScrollView
           contentContainerStyle={styles.content}
@@ -403,27 +403,28 @@ export function AssetsScreen() {
               <ThemedText style={styles.topIcon}>♧</ThemedText>
               <ThemedText style={styles.topIcon}>↗</ThemedText>
             </View>
-            <ThemedText style={styles.pageTitle}>记账资产</ThemedText>
+            <ThemedText style={styles.pageTitle}>资产</ThemedText>
             <View style={styles.topSpacer} />
           </View>
 
           <Animated.View entering={FadeInDown.duration(340).delay(40)} style={styles.heroCard}>
             <View style={styles.heroHeader}>
               <ThemedText style={styles.heroLabel}>净资产（CNY）</ThemedText>
-              <ThemedText style={styles.heroChange}>{monthlyChange >= 0 ? '+' : '-'}{formatCurrency(Math.abs(monthlyChange))} 本月</ThemedText>
+              <ThemedText style={[styles.heroChange, { color: monthlyChange >= 0 ? AppPalette.income : AppPalette.expense }]}>
+                {monthlyChange >= 0 ? '+' : '-'}{formatCurrency(Math.abs(monthlyChange))} 本月
+              </ThemedText>
             </View>
             <ThemedText style={styles.heroAmount}>{formatCurrency(netWorth)}</ThemedText>
-            <View style={styles.heroChips}>
-              {slices.length > 0 ? slices.map((slice) => (
-                <View key={slice.key} style={[styles.heroChip, { backgroundColor: slice.color }]}>
-                  <ThemedText style={styles.chipDot}>●</ThemedText>
-                  <ThemedText style={styles.chipText}>{slice.label} {slice.percent}%</ThemedText>
-                </View>
-              )) : (
-                <View style={[styles.heroChip, styles.emptyChip]}>
-                  <ThemedText style={styles.chipText}>还没有资产账户</ThemedText>
-                </View>
-              )}
+            <View style={styles.heroMetrics}>
+              <View style={styles.heroMetric}>
+                <ThemedText style={styles.heroMetricLabel}>总资产</ThemedText>
+                <ThemedText style={styles.heroMetricValue}>{formatCurrency(totalAssets)}</ThemedText>
+              </View>
+              <View style={styles.heroMetricDivider} />
+              <View style={styles.heroMetric}>
+                <ThemedText style={styles.heroMetricLabel}>总负债</ThemedText>
+                <ThemedText style={[styles.heroMetricValue, styles.heroLiabilityValue]}>{formatCurrency(totalLiabilities)}</ThemedText>
+              </View>
             </View>
           </Animated.View>
 
@@ -561,32 +562,33 @@ const styles = StyleSheet.create({
   topIcon: { ...Glyph.md, color: '#77736D' },
   pageTitle: { ...Type.headline, fontWeight: FontWeight.semibold },
   topSpacer: { width: 82 },
-  heroCard: { backgroundColor: '#8B8780', borderRadius: 17, padding: 13, gap: 6, shadowColor: '#5B5751', shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 3 },
+  heroCard: { backgroundColor: AppPalette.surface, experimental_backgroundImage: 'linear-gradient(135deg, #FFF1F5 0%, #FFFFFF 50%, #E8F8F9 100%)', borderRadius: 22, padding: 16, gap: 7, borderWidth: 1, borderColor: 'rgba(255,255,255,0.94)', shadowColor: AppPalette.shadow, shadowOpacity: 0.09, shadowRadius: 16, shadowOffset: { width: 0, height: 7 }, elevation: 2 },
   heroHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  heroLabel: { ...Type.subhead, color: '#F8F7F5', fontWeight: FontWeight.medium },
-  heroChange: { ...Type.footnote, ...Numeric, color: '#F1B4B7', fontWeight: FontWeight.semibold },
-  heroAmount: { ...Type.display, ...Numeric, color: '#FFFFFF', fontWeight: FontWeight.bold },
-  heroChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 2 },
-  heroChip: { flexDirection: 'row', alignItems: 'center', borderRadius: 10, paddingHorizontal: 7, paddingVertical: 4 },
-  emptyChip: { backgroundColor: 'rgba(255,255,255,0.22)' },
-  chipDot: { color: '#FFFFFF', fontSize: 8, marginRight: 4 },
-  chipText: { ...Type.caption, color: '#FFFFFF', fontWeight: FontWeight.semibold },
+  heroLabel: { ...Type.subhead, color: AppPalette.inkSoft, fontWeight: FontWeight.medium },
+  heroChange: { ...Type.footnote, ...Numeric, fontWeight: FontWeight.semibold },
+  heroAmount: { ...Type.hero, ...Numeric, color: AppPalette.ink, fontWeight: FontWeight.bold, paddingVertical: 3 },
+  heroMetrics: { flexDirection: 'row', alignItems: 'stretch', marginTop: 2, borderTopWidth: 1, borderTopColor: 'rgba(102,108,118,0.10)', paddingTop: 11 },
+  heroMetric: { flex: 1, gap: 3 },
+  heroMetricLabel: { ...Type.caption, color: AppPalette.textMuted, fontWeight: FontWeight.medium },
+  heroMetricValue: { ...Type.headline, ...Numeric, color: AppPalette.inkSoft, fontWeight: FontWeight.semibold },
+  heroLiabilityValue: { color: AppPalette.danger },
+  heroMetricDivider: { width: 1, marginHorizontal: 14, backgroundColor: 'rgba(102,108,118,0.10)' },
   sectionTitle: { ...Type.body, fontWeight: FontWeight.semibold, color: '#4D4944' },
   accountsPanel: { gap: 9, paddingTop: 3 },
   accountsPanelHeader: { minHeight: 36, paddingHorizontal: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   accountsPanelTitleRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
   accountsTitle: { ...Type.title, fontWeight: FontWeight.semibold, color: '#302E2A' },
-  panelAddButton: { borderRadius: 12, paddingHorizontal: 9, paddingVertical: 5, backgroundColor: '#E6F2EC' },
-  panelAddText: { ...Type.subhead, color: '#3E7F68', fontWeight: FontWeight.semibold },
+  panelAddButton: { borderRadius: 12, paddingHorizontal: 9, paddingVertical: 5, backgroundColor: AppPalette.expenseSoft },
+  panelAddText: { ...Type.subhead, color: AppPalette.expense, fontWeight: FontWeight.semibold },
   pressFeedback: { opacity: 0.72, transform: [{ scale: 0.97 }] },
   accountFilters: { flexDirection: 'row', gap: 5 },
-  accountFilter: { position: 'relative', flex: 1, alignItems: 'center', borderRadius: 10, paddingVertical: 6, overflow: 'hidden', backgroundColor: '#ECEFED' },
-  accountFilterActive: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, borderRadius: 10, backgroundColor: '#8B8780' },
+  accountFilter: { position: 'relative', flex: 1, alignItems: 'center', borderRadius: 10, paddingVertical: 6, overflow: 'hidden', backgroundColor: AppPalette.surfaceMuted },
+  accountFilterActive: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, borderRadius: 10, backgroundColor: AppPalette.primary },
   accountFilterText: { zIndex: 1, ...Type.subhead, color: '#77736D', fontWeight: FontWeight.medium },
   accountFilterTextActive: { color: '#FFFFFF', fontWeight: FontWeight.semibold },
   filterPressed: { opacity: 0.76 },
-  accountList: { backgroundColor: '#F5F7FA' },
-  accountRow: { minHeight: 62, paddingHorizontal: 2, flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 9, backgroundColor: '#F5F7FA' },
+  accountList: { backgroundColor: 'rgba(255,255,255,0.42)' },
+  accountRow: { minHeight: 62, paddingHorizontal: 2, flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 9, backgroundColor: 'rgba(255,255,255,0.42)' },
   accountRowDivider: { height: 1, marginLeft: 49, backgroundColor: '#E3E7EA' },
   accountIcon: { width: 38, height: 38, borderRadius: 19, overflow: 'hidden', backgroundColor: '#F1F0EE', alignItems: 'center', justifyContent: 'center' },
   accountIconImage: { width: 30, height: 30, borderRadius: 999 },
@@ -599,14 +601,14 @@ const styles = StyleSheet.create({
   excludedBadge: { backgroundColor: '#F4EBDD' },
   excludedBadgeText: { color: '#8D7047' },
   accountAmount: { maxWidth: 120, ...Type.body, ...Numeric, fontWeight: FontWeight.semibold, color: '#5C5954' },
-  liabilityAmount: { color: '#C4432F' },
-  swipeContainer: { overflow: 'hidden', backgroundColor: '#F5F7FA' },
-  swipeChild: { backgroundColor: '#F5F7FA' },
+  liabilityAmount: { color: AppPalette.danger },
+  swipeContainer: { overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.42)' },
+  swipeChild: { backgroundColor: 'rgba(255,255,255,0.42)' },
   swipeActions: { flexDirection: 'row', alignSelf: 'stretch', alignItems: 'center', gap: 6, paddingLeft: 6 },
   swipeAction: { width: 60, height: 50, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   statusSwipeAction: { backgroundColor: '#C7C8C7' },
-  editSwipeAction: { backgroundColor: '#8FD49B' },
-  deleteSwipeAction: { backgroundColor: '#E06B62' },
+  editSwipeAction: { backgroundColor: AppPalette.income },
+  deleteSwipeAction: { backgroundColor: AppPalette.danger },
   swipeActionText: { ...Type.body, color: '#FFFFFF', fontWeight: FontWeight.semibold },
   swipeActionPressed: { opacity: 0.82, transform: [{ scale: 0.97 }] },
   deleteOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(20,26,30,0.42)' },
@@ -635,10 +637,10 @@ const styles = StyleSheet.create({
   deleteWarningBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 14, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11, backgroundColor: '#FFF5E4' },
   deleteWarningSymbol: { ...Type.headline, lineHeight: 19, color: '#E9A51B' },
   deleteWarningText: { flex: 1, ...Type.footnote, color: '#7A6650' },
-  deleteConfirmButton: { marginTop: 18, borderRadius: 999, alignItems: 'center', paddingVertical: 15, backgroundColor: '#A8D3AD' },
+  deleteConfirmButton: { marginTop: 18, borderRadius: 999, alignItems: 'center', paddingVertical: 15, backgroundColor: AppPalette.primary },
   deleteConfirmButtonDisabled: { backgroundColor: '#E6E8E9' },
   deleteConfirmButtonPressed: { opacity: 0.78 },
-  deleteConfirmButtonText: { ...Type.headline, color: '#17212B', fontWeight: FontWeight.semibold },
+  deleteConfirmButtonText: { ...Type.headline, color: AppPalette.surface, fontWeight: FontWeight.semibold },
   emptyAccounts: { minHeight: 54, alignItems: 'center', justifyContent: 'center' },
   emptyAssetState: { minHeight: 350, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22, paddingTop: 4, paddingBottom: 30 },
   emptyIllustration: { width: 184, height: 164, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
@@ -651,6 +653,6 @@ const styles = StyleSheet.create({
   trendHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   rangeControl: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   rangeButton: { borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 },
-  rangeSelected: { backgroundColor: '#8B8780' },
-  chartCard: { backgroundColor: '#FFFFFF', borderRadius: 15, padding: 10, shadowColor: '#28343A', shadowOpacity: 0.04, shadowRadius: 9, shadowOffset: { width: 0, height: 4 }, elevation: 1 },
+  rangeSelected: { backgroundColor: AppPalette.primary },
+  chartCard: { backgroundColor: 'rgba(255,255,255,0.76)', borderRadius: 17, padding: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.86)', shadowColor: AppPalette.shadow, shadowOpacity: 0.05, shadowRadius: 9, shadowOffset: { width: 0, height: 4 }, elevation: 1 },
 });

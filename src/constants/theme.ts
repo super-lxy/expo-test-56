@@ -7,20 +7,54 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
+/**
+ * App-wide semantic palette.
+ *
+ * Brand/account colors remain domain data. These colors are reserved for the
+ * application shell, interaction states and financial meaning.
+ */
+export const AppPalette = {
+  ink: '#24262E',
+  inkSoft: '#454A52',
+  textMuted: '#858C94',
+  textFaint: '#B2B7BD',
+  canvas: '#F7F7F8',
+  canvasWarm: '#FAF7F6',
+  surface: '#FFFFFF',
+  surfaceMuted: '#F1F2F3',
+  line: '#ECEDEF',
+  lineStrong: '#DFE2E5',
+  primary: '#2B2D35',
+  primaryPressed: '#202229',
+  expense: '#F08A55',
+  expenseSoft: '#FFF0E6',
+  income: '#37C98A',
+  incomeSoft: '#E4F8EF',
+  danger: '#E3615B',
+  dangerSoft: '#FCE9E7',
+  warning: '#E9A544',
+  warningSoft: '#FFF4DF',
+  blush: '#F9ECEF',
+  cyanSoft: '#EAF7F8',
+  lavenderSoft: '#F1EDF8',
+  overlay: 'rgba(27, 29, 35, 0.40)',
+  shadow: '#59616B',
+} as const;
+
 export const Colors = {
   light: {
-    text: '#17212B',
-    background: '#F5F7FA',
-    backgroundElement: '#FFFFFF',
-    backgroundSelected: '#E8EEF2',
-    textSecondary: '#71808C',
+    text: AppPalette.ink,
+    background: AppPalette.canvas,
+    backgroundElement: AppPalette.surface,
+    backgroundSelected: AppPalette.surfaceMuted,
+    textSecondary: AppPalette.textMuted,
   },
   dark: {
-    text: '#F7FAFC',
-    background: '#101820',
-    backgroundElement: '#18232D',
-    backgroundSelected: '#263744',
-    textSecondary: '#A8B7C2',
+    text: '#F7F7F8',
+    background: '#17181D',
+    backgroundElement: '#22242B',
+    backgroundSelected: '#30333C',
+    textSecondary: '#A8ADB5',
   },
 } as const;
 

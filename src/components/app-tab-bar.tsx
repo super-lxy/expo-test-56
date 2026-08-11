@@ -1,11 +1,11 @@
 import type { BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs';
 import { useRouter } from 'expo-router';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
-import { FontWeight, Glyph, Type } from '@/constants/theme';
+import { AppPalette, FontWeight, Glyph, Type } from '@/constants/theme';
 import { useTabScroll } from '@/context/tab-scroll';
 
-const ACTIVE_COLOR = '#167C80';
-const INACTIVE_COLOR = '#83909A';
+const ACTIVE_COLOR = AppPalette.ink;
+const INACTIVE_COLOR = '#9A9EA6';
 
 function TabItem({
   route,
@@ -27,7 +27,11 @@ function TabItem({
   }
 
   return (
-    <Pressable accessibilityRole="tab" accessibilityState={focused ? { selected: true } : {}} onPress={handlePress} style={styles.tabItem}>
+    <Pressable
+      accessibilityRole="tab"
+      accessibilityState={focused ? { selected: true } : {}}
+      onPress={handlePress}
+      style={[styles.tabItem, focused && styles.tabItemActive]}>
       {options.tabBarIcon?.({ focused, color, size: 23 })}
       <Text style={[styles.tabLabel, { color }]}>{label}</Text>
     </Pressable>
@@ -78,7 +82,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 14,
     right: 14,
-    height: 68,
+    height: 60,
     zIndex: 30,
     elevation: 30,
   },
@@ -86,15 +90,15 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'stretch',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.82)',
+    borderRadius: 18,
     paddingHorizontal: 7,
     borderWidth: 1,
-    borderColor: '#E6ECEF',
-    shadowColor: '#31414D',
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 5 },
+    borderColor: 'rgba(255,255,255,0.92)',
+    shadowColor: AppPalette.shadow,
+    shadowOpacity: 0.09,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 6 },
     elevation: 8,
   },
   tabItem: {
@@ -102,6 +106,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
+    marginVertical: 5,
+    borderRadius: 14,
+  },
+  tabItemActive: {
+    backgroundColor: 'rgba(247,231,237,0.76)',
   },
   tabLabel: {
     ...Type.caption,
@@ -114,27 +123,28 @@ const styles = StyleSheet.create({
     gap: 1,
   },
   addButton: {
-    width: 42,
-    height: 42,
-    marginTop: -9,
-    borderRadius: 21,
+    width: 38,
+    height: 38,
+    marginTop: -7,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: ACTIVE_COLOR,
-    borderWidth: 4,
-    borderColor: '#F5F7FA',
-    shadowColor: '#2D7185',
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
+    backgroundColor: '#D785A2',
+    experimental_backgroundImage: 'linear-gradient(135deg, #E5A1B7 0%, #CE7898 100%)',
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.90)',
+    shadowColor: '#B96888',
+    shadowOpacity: 0.18,
+    shadowRadius: 7,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 5,
   },
   addButtonPressed: {
     transform: [{ scale: 0.93 }],
     opacity: 0.86,
   },
   addButtonText: {
-    color: '#FFFFFF',
+    color: AppPalette.surface,
     ...Glyph.lg,
     lineHeight: 26,
     fontWeight: FontWeight.regular,

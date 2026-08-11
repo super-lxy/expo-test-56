@@ -5,9 +5,10 @@ import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import type { SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppBackground } from '@/components/app-background';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { FontWeight, Numeric, Type } from '@/constants/theme';
+import { AppPalette, FontWeight, Numeric, Type } from '@/constants/theme';
 import type { AccountBalance } from '@/features/accounts/domain/account.types';
 import { useAccounts } from '@/features/accounts/hooks/useAccounts';
 import { formatCurrency } from '@/shared/utils/currency';
@@ -77,6 +78,7 @@ export function HiddenAssetsScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      <AppBackground />
       <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
         <View style={styles.header}>
           <Pressable
@@ -131,7 +133,7 @@ export function HiddenAssetsScreen() {
             <SymbolView
               name={{ ios: 'info.circle.fill', android: 'info', web: 'info' }}
               size={17}
-              tintColor="#7D8D83"
+              tintColor={AppPalette.textMuted}
             />
             <ThemedText type="small" style={styles.infoText}>
               隐藏账户只参与本页合计；关闭“计入资产合计”后，账户仍会保留在列表中。
@@ -204,39 +206,39 @@ export function HiddenAssetsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7F5' },
+  container: { flex: 1, backgroundColor: AppPalette.canvas },
   safeArea: { flex: 1 },
   header: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8 },
   headerButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { ...Type.title, color: '#202522', fontWeight: FontWeight.semibold },
   content: { paddingHorizontal: 12, paddingBottom: 36, gap: 12 },
-  summaryCard: { position: 'relative', overflow: 'hidden', borderRadius: 24, padding: 18, gap: 10, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E9EDEA', shadowColor: '#516057', shadowOpacity: 0.08, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 2 },
-  summaryDecorationLarge: { position: 'absolute', width: 150, height: 150, borderRadius: 75, right: -48, top: -56, backgroundColor: '#E4F3E8' },
-  summaryDecorationSmall: { position: 'absolute', width: 66, height: 66, borderRadius: 33, right: 54, bottom: -35, backgroundColor: '#F0EBDD' },
+  summaryCard: { position: 'relative', overflow: 'hidden', borderRadius: 24, padding: 18, gap: 10, backgroundColor: AppPalette.surface, borderWidth: 1, borderColor: AppPalette.line, shadowColor: AppPalette.shadow, shadowOpacity: 0.08, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 2 },
+  summaryDecorationLarge: { position: 'absolute', width: 150, height: 150, borderRadius: 75, right: -48, top: -56, backgroundColor: AppPalette.cyanSoft },
+  summaryDecorationSmall: { position: 'absolute', width: 66, height: 66, borderRadius: 33, right: 54, bottom: -35, backgroundColor: AppPalette.blush },
   summaryHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   summaryTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  summaryAccent: { width: 5, height: 20, borderRadius: 3, backgroundColor: '#A8DAB3' },
+  summaryAccent: { width: 5, height: 20, borderRadius: 3, backgroundColor: AppPalette.expense },
   summaryTitle: { ...Type.body, color: '#353B37', fontWeight: FontWeight.semibold },
-  poolBadge: { borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5, backgroundColor: '#E4F2E7' },
-  poolBadgeText: { ...Type.caption, color: '#567461', fontWeight: FontWeight.semibold },
+  poolBadge: { borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5, backgroundColor: AppPalette.lavenderSoft },
+  poolBadgeText: { ...Type.caption, color: AppPalette.inkSoft, fontWeight: FontWeight.semibold },
   summaryAmount: { ...Type.display, ...Numeric, color: '#1E2420', fontWeight: FontWeight.bold },
-  summaryBreakdown: { flexDirection: 'row', alignItems: 'stretch', marginTop: 4, borderRadius: 16, padding: 11, backgroundColor: '#F5F7F5' },
+  summaryBreakdown: { flexDirection: 'row', alignItems: 'stretch', marginTop: 4, borderRadius: 16, padding: 11, backgroundColor: AppPalette.surfaceMuted },
   summaryMetric: { flex: 1, gap: 3 },
   metricLabel: { color: '#89918C' },
-  metricAmount: { ...Type.headline, ...Numeric, color: '#425249', fontWeight: FontWeight.semibold },
-  liabilityAmount: { color: '#C45A4C' },
-  metricDivider: { width: 1, marginHorizontal: 12, backgroundColor: '#E1E6E2' },
-  infoCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, borderRadius: 14, paddingHorizontal: 11, paddingVertical: 10, backgroundColor: '#E9EFEB' },
+  metricAmount: { ...Type.headline, ...Numeric, color: AppPalette.inkSoft, fontWeight: FontWeight.semibold },
+  liabilityAmount: { color: AppPalette.danger },
+  metricDivider: { width: 1, marginHorizontal: 12, backgroundColor: AppPalette.line },
+  infoCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, borderRadius: 14, paddingHorizontal: 11, paddingVertical: 10, backgroundColor: AppPalette.cyanSoft },
   infoText: { flex: 1, color: '#67716B', lineHeight: 18 },
   listHeader: { minHeight: 45, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingHorizontal: 2 },
   listTitle: { ...Type.title, color: '#2C322E', fontWeight: FontWeight.semibold },
   accountList: { overflow: 'hidden', borderRadius: 18, paddingHorizontal: 10, backgroundColor: '#F5F7FA', borderWidth: 1, borderColor: '#E7EBE8' },
   emptyState: { minHeight: 270, alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 20, backgroundColor: '#FFFFFF' },
-  emptyIcon: { width: 58, height: 58, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EEF1EF' },
+  emptyIcon: { width: 58, height: 58, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: AppPalette.lavenderSoft },
   emptyTitle: { ...Type.headline, color: '#404641', fontWeight: FontWeight.semibold },
   emptyDescription: { maxWidth: 230, textAlign: 'center' },
-  emptyButton: { marginTop: 7, borderRadius: 999, paddingHorizontal: 18, paddingVertical: 9, backgroundColor: '#DDEDE1' },
-  emptyButtonText: { ...Type.subhead, color: '#4F755B', fontWeight: FontWeight.semibold },
+  emptyButton: { marginTop: 7, borderRadius: 999, paddingHorizontal: 18, paddingVertical: 9, backgroundColor: AppPalette.primary },
+  emptyButtonText: { ...Type.subhead, color: AppPalette.surface, fontWeight: FontWeight.semibold },
   footerHint: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingTop: 4 },
   footerHintText: { color: '#A3AAA6' },
 });

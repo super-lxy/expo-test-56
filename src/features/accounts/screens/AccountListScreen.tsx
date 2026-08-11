@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { FontWeight, Glyph, Numeric, Type } from '@/constants/theme';
+import { AppPalette, FontWeight, Glyph, Numeric, Type } from '@/constants/theme';
 import { formatCurrency } from '@/shared/utils/currency';
 import { useAccounts } from '../hooks/useAccounts';
 import { findTemplate } from '../domain/account.templates';
@@ -82,21 +82,21 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   headerInfo: { gap: 1 },
   pageTitle: { ...Type.title, fontWeight: FontWeight.bold },
-  addButton: { backgroundColor: '#DDF3F0', borderRadius: 12, paddingHorizontal: 11, paddingVertical: 7 },
-  addText: { ...Type.subhead, color: '#167C80', fontWeight: FontWeight.semibold },
-  totalCard: { backgroundColor: '#167C80', borderRadius: 18, padding: 15, gap: 6, shadowColor: '#167C80', shadowOpacity: 0.14, shadowRadius: 10, shadowOffset: { width: 0, height: 5 }, elevation: 3 },
-  totalLabel: { ...Type.subhead, color: '#DDF3F0', fontWeight: FontWeight.medium },
+  addButton: { backgroundColor: AppPalette.expenseSoft, borderRadius: 12, paddingHorizontal: 11, paddingVertical: 7 },
+  addText: { ...Type.subhead, color: AppPalette.expense, fontWeight: FontWeight.semibold },
+  totalCard: { backgroundColor: AppPalette.primary, borderRadius: 18, padding: 15, gap: 6, shadowColor: AppPalette.ink, shadowOpacity: 0.14, shadowRadius: 10, shadowOffset: { width: 0, height: 5 }, elevation: 3 },
+  totalLabel: { ...Type.subhead, color: '#E4E5E8', fontWeight: FontWeight.medium },
   totalAmount: { ...Type.display, ...Numeric, color: '#FFFFFF', fontWeight: FontWeight.bold },
-  totalHint: { ...Numeric, color: '#B8E3DE' },
+  totalHint: { ...Numeric, color: '#C7CAD0' },
   list: { gap: 6 },
   emptyRow: { minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 14, paddingHorizontal: 12, backgroundColor: '#FFFFFF' },
-  emptyAction: { ...Type.subhead, color: '#167C80', fontWeight: FontWeight.semibold },
+  emptyAction: { ...Type.subhead, color: AppPalette.expense, fontWeight: FontWeight.semibold },
   accountCard: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 14, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E7EDF0' },
   accountIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   accountIconText: { ...Glyph.md },
   accountInfo: { flex: 1, gap: 2 },
   accountName: { ...Type.body, fontWeight: FontWeight.semibold },
   accountBalance: { ...Type.body, ...Numeric, fontWeight: FontWeight.semibold },
-  liabilityBalance: { color: '#C4432F' },
+  liabilityBalance: { color: AppPalette.danger },
   totalBreakdown: { flexDirection: 'row', gap: 14 },
 });

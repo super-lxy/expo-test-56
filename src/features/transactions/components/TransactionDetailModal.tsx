@@ -3,7 +3,7 @@ import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, View, useWi
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { FontWeight, Glyph, Numeric, Type } from '@/constants/theme';
+import { AppPalette, FontWeight, Glyph, Numeric, Type } from '@/constants/theme';
 import { CategoryIcon } from '@/features/categories/components/CategoryIcon';
 import { EXTERNAL_TRANSFER_ACCOUNT_ID } from '@/features/accounts/domain/systemAccounts';
 import { formatCurrency } from '@/shared/utils/currency';
@@ -159,12 +159,12 @@ export function TransactionDetailModal({
       ? `${displayedTransaction.parentCategoryName} - ${displayedTransaction.categoryName}`
       : displayedTransaction.categoryName;
   const amountColor = isInitialBalance
-    ? initialBalancePrefix === '-' ? '#E6545F' : '#167C80'
+    ? initialBalancePrefix === '-' ? AppPalette.expense : AppPalette.income
     : isTransfer
-      ? '#17212B'
+      ? AppPalette.ink
       : isIncome
-        ? '#167C80'
-        : '#E6545F';
+        ? AppPalette.income
+        : AppPalette.expense;
 
   return (
     <Modal
@@ -252,7 +252,7 @@ export function TransactionDetailModal({
                   <CategoryIcon
                     icon={displayedTransaction.categoryIcon}
                     iconType={displayedTransaction.categoryIconType}
-                    imageSize={36}
+                    boxSize={42}
                     textStyle={styles.categoryIcon}
                   />
                 </View>
@@ -310,13 +310,13 @@ export function TransactionDetailModal({
 
 const styles = StyleSheet.create({
   modalRoot: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', paddingHorizontal: 10 },
-  backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(22, 27, 31, 0.46)' },
+  backdrop: { ...StyleSheet.absoluteFill, backgroundColor: AppPalette.overlay },
   sheet: {
     width: '100%',
     maxWidth: 720,
     borderRadius: 26,
     overflow: 'hidden',
-    backgroundColor: '#F7F8F8',
+    backgroundColor: AppPalette.canvas,
     shadowColor: '#101820',
     shadowOpacity: 0.16,
     shadowRadius: 18,
@@ -330,8 +330,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#EEF0F1',
-    backgroundColor: '#FFFFFF',
+    borderBottomColor: AppPalette.line,
+    backgroundColor: AppPalette.surface,
   },
   closeButton: {
     width: 36,
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EEF0F1',
+    backgroundColor: AppPalette.surfaceMuted,
   },
   closeText: { fontSize: 25, lineHeight: 27, color: '#7B858D', fontWeight: FontWeight.regular },
   deleteButton: {
@@ -350,10 +350,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: '#E6545F',
-    backgroundColor: '#FFFFFF',
+    borderColor: AppPalette.danger,
+    backgroundColor: AppPalette.surface,
   },
-  deleteText: { ...Type.subhead, color: '#E6545F', fontWeight: FontWeight.semibold },
+  deleteText: { ...Type.subhead, color: AppPalette.danger, fontWeight: FontWeight.semibold },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   editButton: {
     minWidth: 54,
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#252735',
+    backgroundColor: AppPalette.primary,
   },
   editText: { ...Type.subhead, color: '#FFFFFF', fontWeight: FontWeight.semibold },
   buttonPressed: { opacity: 0.72, transform: [{ scale: 0.97 }] },
@@ -373,9 +373,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: AppPalette.surface,
     borderWidth: 1,
-    borderColor: '#F0F1F2',
+    borderColor: AppPalette.line,
     shadowColor: '#5F6870',
     shadowOpacity: 0.045,
     shadowRadius: 8,
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 8 },
-  sectionAccent: { width: 4, height: 17, borderRadius: 2, backgroundColor: '#B9EBCB' },
+  sectionAccent: { width: 4, height: 17, borderRadius: 2, backgroundColor: AppPalette.expense },
   sectionTitle: { ...Type.body, fontWeight: FontWeight.semibold },
   categoryRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   categoryIconBox: {

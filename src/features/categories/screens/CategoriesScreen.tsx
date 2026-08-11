@@ -6,14 +6,14 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { FontWeight, Glyph, Spacing, Type } from '@/constants/theme';
+import { AppPalette, FontWeight, Glyph, Spacing, Type } from '@/constants/theme';
 import { CategoryIcon } from '../components/CategoryIcon';
 import { useCategoryRepository } from '@/features/transactions/hooks/useTransactions';
 import type { Category, CategoryType } from '../domain/category.types';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
-const CATEGORY_ICON_BACKGROUND = '#F1F3F4';
-const CATEGORY_HEADER_BACKGROUND = '#A8D3AD';
+const CATEGORY_ICON_BACKGROUND = AppPalette.expenseSoft;
+const CATEGORY_HEADER_BACKGROUND = AppPalette.blush;
 
 function CategoryChevron({ expanded }: { expanded: boolean }) {
   const [rotation] = useState(() => new Animated.Value(expanded ? 90 : 0));
@@ -68,7 +68,7 @@ function CategoryRow({
         <CategoryChevron expanded={expanded} />
         {/* 图标方块 */}
         <View style={styles.iconBox}>
-          <CategoryIcon icon={root.icon} iconType={root.iconType} imageSize={36} textStyle={styles.iconText} />
+          <CategoryIcon icon={root.icon} iconType={root.iconType} boxSize={40} textStyle={styles.iconText} />
         </View>
         <ThemedText style={styles.rowName}>{root.name}</ThemedText>
         <Pressable onPress={onMorePress} hitSlop={10} style={styles.moreBtn}>
@@ -95,7 +95,7 @@ function CategoryRow({
             {items.map((child) => (
               <Pressable key={child.id} onPress={() => onEditChild(child)} style={styles.childChip}>
                 <View style={styles.childIconBox}>
-                  <CategoryIcon icon={child.icon} iconType={child.iconType} imageSize={34} textStyle={styles.childIconText} />
+                  <CategoryIcon icon={child.icon} iconType={child.iconType} boxSize={46} textStyle={styles.childIconText} />
                 </View>
                 <ThemedText style={styles.childName} numberOfLines={1}>{child.name}</ThemedText>
               </Pressable>
@@ -296,7 +296,7 @@ export function CategoriesScreen() {
                 ]}>
                 <View style={styles.sheetHeader}>
                   <View style={styles.sheetIconBox}>
-                    <CategoryIcon icon={sheetChild.icon} iconType={sheetChild.iconType} imageSize={28} textStyle={styles.sheetIcon} />
+                    <CategoryIcon icon={sheetChild.icon} iconType={sheetChild.iconType} boxSize={36} textStyle={styles.sheetIcon} />
                   </View>
                   <ThemedText style={styles.sheetTitle}>{sheetChild.name}</ThemedText>
                   <Pressable onPress={() => setSelectedChild(null)} hitSlop={10} style={styles.sheetClose}>
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
   back: { fontSize: 32, lineHeight: 34, fontWeight: FontWeight.regular, color: '#17212B', width: 28 },
   segmented: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 2 },
   seg: { paddingHorizontal: 7, paddingVertical: 6, borderRadius: 20 },
-  segActive: { backgroundColor: '#34314F' },
+  segActive: { backgroundColor: AppPalette.primary },
   segText: { ...Type.body, fontWeight: FontWeight.semibold, color: '#17212B' },
   segTextActive: { color: '#FFFFFF' },
   headerSpacer: { width: 28 },
@@ -385,8 +385,8 @@ const styles = StyleSheet.create({
   hintRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 8 },
   hintIcon: { ...Type.footnote, color: '#9AA4AE' },
   hintText: { flex: 1 },
-  addChildBtn: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 12, backgroundColor: '#DDF3F0' },
-  addChildBtnText: { ...Type.footnote, color: '#167C80', fontWeight: FontWeight.semibold },
+  addChildBtn: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 12, backgroundColor: AppPalette.expenseSoft },
+  addChildBtnText: { ...Type.footnote, color: AppPalette.expense, fontWeight: FontWeight.semibold },
   childScroll: { paddingHorizontal: 16, gap: 6, paddingBottom: 2 },
   childChip: { alignItems: 'center', gap: 4, width: 54 },
   childIconBox: { width: 46, height: 46, borderRadius: 14, backgroundColor: CATEGORY_ICON_BACKGROUND, alignItems: 'center', justifyContent: 'center' },
@@ -395,11 +395,11 @@ const styles = StyleSheet.create({
 
   // ── 底部栏 ──────────────────────────────────
   bottomBar: { paddingHorizontal: Spacing.four, paddingTop: 12, paddingBottom: 8, backgroundColor: '#FFFFFF' },
-  addButton: { backgroundColor: CATEGORY_HEADER_BACKGROUND, borderRadius: 18, alignItems: 'center', paddingVertical: 16 },
-  addText: { ...Type.body, color: '#17212B', fontWeight: FontWeight.semibold },
+  addButton: { backgroundColor: AppPalette.primary, borderRadius: 18, alignItems: 'center', paddingVertical: 16 },
+  addText: { ...Type.body, color: AppPalette.surface, fontWeight: FontWeight.semibold },
 
   // ── 子分类操作菜单 ──────────────────────────────────
-  sheetBackdrop: { flex: 1, backgroundColor: 'rgba(20,26,30,0.35)' },
+  sheetBackdrop: { flex: 1, backgroundColor: AppPalette.overlay },
   // 靠下浮动的完整卡片：四角全圆、左右和底部都留缝隙
   sheetWrap: { paddingHorizontal: 12 },
   sheet: {
