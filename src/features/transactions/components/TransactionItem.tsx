@@ -139,10 +139,10 @@ export function TransactionItem({
 }
 
 const styles = StyleSheet.create({
-  dayHeader: { minHeight: 36, flexDirection: 'row', alignItems: 'stretch' },
+  dayHeader: { minHeight: 27, flexDirection: 'row', alignItems: 'stretch' },
   dayLabelRow: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center' },
-  dayLabel: { ...Type.body, color: '#59636C', fontWeight: FontWeight.semibold, fontStyle: 'italic', paddingLeft: 8 },
-  dayDot: { zIndex: 1, width: 7, height: 7, borderRadius: 4, backgroundColor: '#92A0AD', borderWidth: 1, borderColor: '#FFFFFF' },
+  dayLabel: { ...Type.subhead, color: '#59636C', fontWeight: FontWeight.semibold, paddingLeft: 6 },
+  dayDot: { zIndex: 1, width: 6, height: 6, borderRadius: 3, backgroundColor: '#92A0AD', borderWidth: 1, borderColor: '#FFFFFF' },
   container: { minHeight: 64, flexDirection: 'row', alignItems: 'stretch' },
   time: { ...Type.caption, ...Numeric, color: '#8E979F', fontWeight: FontWeight.medium, flexShrink: 0 },
   timelineRail: { width: 18, alignItems: 'center', justifyContent: 'center' },

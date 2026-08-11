@@ -165,8 +165,8 @@ const seg = StyleSheet.create({
   itemActive: { backgroundColor: AppPalette.expenseSoft },
   text: { ...Type.subhead, fontWeight: FontWeight.medium, color: '#71808C' },
   textActive: { color: AppPalette.expense, fontWeight: FontWeight.semibold },
-  compactWrap: { width: 158, justifyContent: 'center', gap: 6 },
-  compactItem: { width: 76, alignItems: 'center', paddingHorizontal: 7, paddingVertical: 6 },
+  compactWrap: { width: 204, flexWrap: 'nowrap', justifyContent: 'center', gap: 6 },
+  compactItem: { flex: 1, minHeight: 34, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, paddingVertical: 5 },
   compactItemActive: { backgroundColor: AppPalette.primary },
   compactTextActive: { color: '#FFFFFF' },
 });
@@ -305,7 +305,7 @@ export function AccountFormScreen() {
   return (
     <ThemedView style={[s.container, s.simpleContainer]}>
       <SafeAreaView edges={['top', 'bottom']} style={s.safeArea}>
-        <View style={[s.header, s.simpleHeader]}>
+        <View style={[s.header, s.simpleHeader, isEditing && s.editingHeader]}>
           <Pressable
             onPress={() => router.back()}
             style={s.backButton}
@@ -323,40 +323,50 @@ export function AccountFormScreen() {
         </View>
 
         <ScrollView
-          contentContainerStyle={[s.content, s.simpleContent, hasBillingCycle && s.creditContent]}
+          contentContainerStyle={[
+            s.content,
+            s.simpleContent,
+            hasBillingCycle && s.creditContent,
+            isEditing && s.editingContent,
+          ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
 
           {/* ① 资产类型 */}
-          <View style={[s.card, s.simpleCard]}>
+          <View style={[s.card, s.simpleCard, isEditing && s.editingTypeCard]}>
             <ThemedText style={[s.cardTitle, s.simpleCardTitle]}>资产类型</ThemedText>
             <Pressable
               onPress={() => { if (!isEditing) router.back(); }}
               disabled={isEditing}
-              style={[s.typeRow, s.simpleTypeRow]}
+              style={[s.typeRow, s.simpleTypeRow, isEditing && s.editingTypeRow]}
               accessibilityRole="button">
-              <View style={[s.typeIcon, s.simpleTypeIcon, !brand?.icon && { backgroundColor: `${template.color}1A` }]}>
+              <View style={[
+                s.typeIcon,
+                s.simpleTypeIcon,
+                isEditing && s.editingTypeIcon,
+                !brand?.icon && { backgroundColor: `${template.color}1A` },
+              ]}>
                 {brand?.icon
                   ? <Image source={brand.icon} style={s.typeIconImg} contentFit="contain" />
                   : <ThemedText style={s.typeIconEmoji}>{template.icon}</ThemedText>}
               </View>
-              <ThemedText style={[s.typeLabel, s.simpleTypeLabel]}>{template.label}</ThemedText>
+              <ThemedText style={[s.typeLabel, s.simpleTypeLabel, isEditing && s.editingTypeLabel]}>{template.label}</ThemedText>
               {!isEditing ? <ThemedText style={s.chevron}>›</ThemedText> : null}
             </Pressable>
           </View>
 
           {/* ② 基本信息 */}
-          <View style={[s.card, s.simpleCard]}>
+          <View style={[s.card, s.simpleCard, isEditing && s.editingCard]}>
             <ThemedText style={[s.cardTitle, s.simpleCardTitle]}>基本信息</ThemedText>
             <TextInput
               value={name}
               onChangeText={setName}
               placeholder="账户名称（选填）"
               placeholderTextColor="#737373"
-              style={[s.input, s.simpleInput]}
+              style={[s.input, s.simpleInput, isEditing && s.editingInput]}
             />
             {isSimpleAccount ? (
-              <View style={s.balanceInput}>
+              <View style={[s.balanceInput, isEditing && s.editingBalanceInput]}>
                 <TextInput
                   value={currentDebt}
                   onChangeText={setCurrentDebt}
@@ -377,7 +387,7 @@ export function AccountFormScreen() {
 
           {/* ③ 资金 */}
           {hasBillingCycle ? (
-            <View style={[s.card, s.simpleCard]}>
+            <View style={[s.card, s.simpleCard, isEditing && s.editingCard]}>
               <ThemedText style={[s.cardTitle, s.simpleCardTitle]}>资金</ThemedText>
               <View style={s.creditFieldRow}>
                 <TextInput
@@ -386,7 +396,7 @@ export function AccountFormScreen() {
                   placeholder="信用额度"
                   placeholderTextColor="#737373"
                   keyboardType="decimal-pad"
-                  style={[s.input, s.simpleInput, s.creditHalfInput]}
+                  style={[s.input, s.simpleInput, s.creditHalfInput, isEditing && s.editingInput]}
                 />
                 <TextInput
                   value={currentDebt}
@@ -395,7 +405,7 @@ export function AccountFormScreen() {
                   placeholderTextColor="#737373"
                   keyboardType="decimal-pad"
                   editable={!isEditing}
-                  style={[s.input, s.simpleInput, s.creditHalfInput, isEditing && s.inputReadonly]}
+                  style={[s.input, s.simpleInput, s.creditHalfInput, isEditing && s.editingInput, isEditing && s.inputReadonly]}
                 />
               </View>
               <TextInput
@@ -403,7 +413,7 @@ export function AccountFormScreen() {
                 editable={false}
                 placeholder="剩余额度"
                 placeholderTextColor="#8B8B8B"
-                style={[s.input, s.simpleInput, s.inputReadonly]}
+                style={[s.input, s.simpleInput, isEditing && s.editingInput, s.inputReadonly]}
               />
               <View style={[s.hintRow, s.simpleHintRow]}>
                 <ThemedText style={s.hintIcon}>ⓘ</ThemedText>
@@ -416,12 +426,12 @@ export function AccountFormScreen() {
 
           {/* ④ 账单/还款日期 */}
           {hasBillingCycle ? (
-            <View style={[s.card, s.simpleCard]}>
+            <View style={[s.card, s.simpleCard, isEditing && s.editingCard]}>
               <ThemedText style={[s.cardTitleDark, s.simpleCardTitle]}>账单/还款日期</ThemedText>
               <View style={s.creditDateRow}>
                 <Pressable
                   onPress={() => openPicker('statement')}
-                  style={s.creditDateItem}
+                  style={[s.creditDateItem, isEditing && s.editingCreditDateItem]}
                   accessibilityRole="button">
                   <ThemedText style={[s.dayLabel, s.dayLabelActive]}>账单日</ThemedText>
                   <ThemedText style={s.creditDateValue}>
@@ -430,7 +440,7 @@ export function AccountFormScreen() {
                 </Pressable>
                 <Pressable
                   onPress={() => openPicker('due')}
-                  style={s.creditDateItem}
+                  style={[s.creditDateItem, isEditing && s.editingCreditDateItem]}
                   accessibilityRole="button">
                   <ThemedText style={s.dayLabel}>还款日</ThemedText>
                   <ThemedText style={s.creditDateValue}>
@@ -486,15 +496,15 @@ export function AccountFormScreen() {
           </View> : null}
 
           {/* ⑥ 其他 */}
-          <View style={[s.card, s.simpleCard]}>
+          <View style={[s.card, s.simpleCard, isEditing && s.editingCard]}>
             <ThemedText style={[s.cardTitle, s.simpleCardTitle]}>其他</ThemedText>
             {/* 资产状态：按钮在右，label 在按钮组底端左侧 */}
-            <View style={[s.statusRow, s.simpleStatusRow]}>
+            <View style={[s.statusRow, s.simpleStatusRow, isEditing && s.editingStatusRow]}>
               <ThemedText style={s.toggleLabel}>资产状态</ThemedText>
               <StatusSegment value={status} onChange={setStatus} compact />
             </View>
             {/* 是否计入当前资产池的合计 */}
-            <View style={[s.toggleRow, s.simpleNetWorthRow]}>
+            <View style={[s.toggleRow, s.simpleNetWorthRow, isEditing && s.editingNetWorthRow]}>
               <View style={s.toggleInfo}>
                 <ThemedText style={s.toggleLabel}>计入资产合计</ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
@@ -518,6 +528,7 @@ export function AccountFormScreen() {
             style={({ pressed }) => [
               s.submitButton,
               s.simpleSubmitButton,
+              isEditing && s.editingSubmitButton,
               pressed && s.submitButtonPressed,
             ]}
             accessibilityRole="button">
@@ -545,6 +556,7 @@ const s = StyleSheet.create({
   safeArea: { flex: 1 },
   header: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 },
   simpleHeader: { minHeight: 48, paddingHorizontal: 6 },
+  editingHeader: { minHeight: 44 },
   backButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   back: { fontSize: 32, lineHeight: 34, fontWeight: FontWeight.regular, color: '#17212B' },
   title: { ...Type.headline, fontWeight: FontWeight.semibold },
@@ -553,6 +565,7 @@ const s = StyleSheet.create({
   content: { paddingHorizontal: 14, paddingBottom: 48, gap: 12 },
   simpleContent: { paddingHorizontal: 10, paddingTop: 4, paddingBottom: 20, gap: 8 },
   creditContent: { paddingBottom: 28 },
+  editingContent: { paddingTop: 0, paddingBottom: 18, gap: 6 },
   card: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, gap: 12 },
   simpleCard: {
     borderRadius: 16,
@@ -564,15 +577,28 @@ const s = StyleSheet.create({
     shadowRadius: 7,
     elevation: 1,
   },
+  editingCard: { padding: 10, gap: 7, borderRadius: 14 },
+  editingTypeCard: {
+    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 12,
+    borderRadius: 14,
+  },
   cardGreenBorder: { borderLeftWidth: 4, borderLeftColor: AppPalette.expense },
   cardTitle: { ...Type.subhead, fontWeight: FontWeight.semibold, color: '#71808C' },
   simpleCardTitle: { ...Type.body, fontWeight: FontWeight.semibold, color: '#171717' },
   cardTitleDark: { ...Type.body, fontWeight: FontWeight.semibold, color: '#17212B' },
   input: { borderRadius: 12, paddingHorizontal: 14, paddingVertical: 13, ...Type.body, color: '#17212B', backgroundColor: '#F5F7FA' },
   simpleInput: { minHeight: 44, borderRadius: 22, paddingHorizontal: 14, paddingVertical: 9, ...Type.body, color: '#171717', backgroundColor: '#F7F7F7' },
+  editingInput: { minHeight: 40, paddingVertical: 7 },
   creditFieldRow: { flexDirection: 'row', gap: 8 },
   creditHalfInput: { flex: 1, minWidth: 0 },
   balanceInput: { minHeight: 44, borderRadius: 22, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: '#F7F7F7' },
+  editingBalanceInput: { minHeight: 40 },
   balanceTextInput: { flex: 1, padding: 0, ...Type.body, color: '#171717' },
   inputReadonly: { color: '#71808C' },
   hintRow: { flexDirection: 'row', gap: 6, alignItems: 'flex-start' },
@@ -580,12 +606,15 @@ const s = StyleSheet.create({
   hintIcon: { ...Type.subhead, color: '#A8B4BE', marginTop: 1 },
   typeRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   simpleTypeRow: { minHeight: 44 },
+  editingTypeRow: { minHeight: 36, flexShrink: 1, justifyContent: 'flex-end', gap: 8 },
   typeIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   simpleTypeIcon: { width: 40, height: 40, borderRadius: 12 },
+  editingTypeIcon: { width: 34, height: 34, borderRadius: 10 },
   typeIconImg: { width: '100%', height: '100%' },
   typeIconEmoji: { fontSize: 20, lineHeight: 24 },
   typeLabel: { ...Type.body, fontWeight: FontWeight.semibold, flex: 1 },
   simpleTypeLabel: { ...Type.body, color: '#171717' },
+  editingTypeLabel: { flex: 0 },
   chevron: { fontSize: 20, color: '#C3CBD2' },
   // 账单日期行
   dayRow: { backgroundColor: '#F5F7FA', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, gap: 4 },
@@ -594,6 +623,7 @@ const s = StyleSheet.create({
   dayValue: { ...Type.title, fontWeight: FontWeight.semibold, color: '#17212B' },
   creditDateRow: { flexDirection: 'row', gap: 8 },
   creditDateItem: { flex: 1, minHeight: 60, borderRadius: 13, paddingHorizontal: 11, paddingVertical: 8, justifyContent: 'center', gap: 2, backgroundColor: '#F7F7F7' },
+  editingCreditDateItem: { minHeight: 52, paddingVertical: 6 },
   creditDateValue: { ...Type.headline, fontWeight: FontWeight.semibold, color: '#17212B' },
   // 余额同步 / 其他 行
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
@@ -607,9 +637,12 @@ const s = StyleSheet.create({
   // 资产状态行（label 在按钮组底端左侧）
   statusRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 },
   simpleStatusRow: { minHeight: 62 },
+  editingStatusRow: { minHeight: 40, alignItems: 'center' },
   simpleNetWorthRow: { paddingTop: 5 },
+  editingNetWorthRow: { paddingTop: 2 },
   submitButton: { backgroundColor: AppPalette.primary, borderRadius: 16, alignItems: 'center', paddingVertical: 17, marginTop: 8 },
   simpleSubmitButton: { borderRadius: 999, marginHorizontal: 10, marginTop: 8, marginBottom: 6, paddingVertical: 13, backgroundColor: AppPalette.primary },
+  editingSubmitButton: { marginTop: 4, marginBottom: 2, paddingVertical: 12 },
   submitButtonDisabled: { backgroundColor: AppPalette.lineStrong },
   submitButtonPressed: { opacity: 0.82 },
   submitText: { ...Type.body, color: '#FFFFFF', fontWeight: FontWeight.semibold },

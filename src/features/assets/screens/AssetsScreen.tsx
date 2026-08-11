@@ -27,7 +27,7 @@ function formatPercent(value: number, total: number) {
 }
 
 const accountLayoutTransition = LinearTransition.springify().damping(22).stiffness(220);
-const swipeActionsWidth = 198;
+const swipeActionsWidth = 132;
 const emptyAssetsIllustration = require('../../../../assets/images/brands/cash-icon.png');
 const swipeAnimationOptions = {
   damping: 22,
@@ -46,14 +46,12 @@ function AccountSwipeActions({
   translation,
   statusActionLabel,
   onStatusAction,
-  onEdit,
   onDelete,
   onClose,
 }: {
   translation: SharedValue<number>;
   statusActionLabel: '隐藏' | '恢复';
   onStatusAction: () => void;
-  onEdit: () => void;
   onDelete: () => void;
   onClose: () => void;
 }) {
@@ -71,11 +69,6 @@ function AccountSwipeActions({
         onPress={() => { onClose(); onStatusAction(); }}
         style={({ pressed }) => [styles.swipeAction, styles.statusSwipeAction, pressed && styles.swipeActionPressed]}>
         <ThemedText style={styles.swipeActionText}>{statusActionLabel}</ThemedText>
-      </Pressable>
-      <Pressable
-        onPress={() => { onClose(); onEdit(); }}
-        style={({ pressed }) => [styles.swipeAction, styles.editSwipeAction, pressed && styles.swipeActionPressed]}>
-        <ThemedText style={styles.swipeActionText}>编辑</ThemedText>
       </Pressable>
       <Pressable
         onPress={() => { onClose(); onDelete(); }}
@@ -143,7 +136,6 @@ export function AccountRow({
             translation={translation}
             statusActionLabel={statusActionLabel}
             onStatusAction={onStatusAction}
-            onEdit={onEdit}
             onDelete={onDelete}
             onClose={methods.close}
           />
@@ -151,43 +143,48 @@ export function AccountRow({
         <Animated.View
           entering={FadeInDown.duration(220).delay(Math.min(index * 35, 175))}
           exiting={FadeOut.duration(140)}
-          layout={accountLayoutTransition}
-          style={styles.accountRow}>
-          <View style={[styles.accountIcon, !brand?.icon && { backgroundColor: `${account.color}1A` }]}>
-            {brand?.icon ? (
-              <Image
-                source={brand.icon}
-                style={[
-                  styles.accountIconImage,
-                  brand.iconSize
-                    ? { width: (brand.iconSize / 44) * 38, height: (brand.iconSize / 44) * 38 }
-                    : null,
-                ]}
-                contentFit={brand.iconFit ?? (brand.iconPosition === 'left' ? 'cover' : 'contain')}
-                contentPosition={brand.iconPosition ?? 'center'}
-              />
-            ) : (
-              <ThemedText style={styles.accountIconText}>{account.icon}</ThemedText>
-            )}
-          </View>
-          <View style={styles.accountInfo}>
-            <ThemedText style={styles.accountName} numberOfLines={1}>{account.name}</ThemedText>
-            <View style={styles.accountMeta}>
-              <ThemedText type="small" themeColor="textSecondary">
-                {typeLabel}{isLiability ? ' · 负债' : account.includeInNetWorth ? ` · ${formatPercent(account.balanceCents, total)}` : ''}
-              </ThemedText>
-              {inclusionLabel || statusLabel ? (
-                <View style={[styles.statusBadge, inclusionLabel && styles.excludedBadge]}>
-                  <ThemedText style={[styles.statusBadgeText, inclusionLabel && styles.excludedBadgeText]}>
-                    {inclusionLabel ?? statusLabel}
-                  </ThemedText>
-                </View>
-              ) : null}
+          layout={accountLayoutTransition}>
+          <Pressable
+            onPress={onEdit}
+            accessibilityRole="button"
+            accessibilityLabel={`编辑账户：${account.name}`}
+            style={({ pressed }) => [styles.accountRow, pressed && styles.accountRowPressed]}>
+            <View style={[styles.accountIcon, !brand?.icon && { backgroundColor: `${account.color}1A` }]}>
+              {brand?.icon ? (
+                <Image
+                  source={brand.icon}
+                  style={[
+                    styles.accountIconImage,
+                    brand.iconSize
+                      ? { width: (brand.iconSize / 44) * 38, height: (brand.iconSize / 44) * 38 }
+                      : null,
+                  ]}
+                  contentFit={brand.iconFit ?? (brand.iconPosition === 'left' ? 'cover' : 'contain')}
+                  contentPosition={brand.iconPosition ?? 'center'}
+                />
+              ) : (
+                <ThemedText style={styles.accountIconText}>{account.icon}</ThemedText>
+              )}
             </View>
-          </View>
-          <ThemedText style={[styles.accountAmount, isLiability && styles.liabilityAmount]} numberOfLines={1}>
-            {formatCurrency(account.balanceCents)}
-          </ThemedText>
+            <View style={styles.accountInfo}>
+              <ThemedText style={styles.accountName} numberOfLines={1}>{account.name}</ThemedText>
+              <View style={styles.accountMeta}>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {typeLabel}{isLiability ? ' · 负债' : account.includeInNetWorth ? ` · ${formatPercent(account.balanceCents, total)}` : ''}
+                </ThemedText>
+                {inclusionLabel || statusLabel ? (
+                  <View style={[styles.statusBadge, inclusionLabel && styles.excludedBadge]}>
+                    <ThemedText style={[styles.statusBadgeText, inclusionLabel && styles.excludedBadgeText]}>
+                      {inclusionLabel ?? statusLabel}
+                    </ThemedText>
+                  </View>
+                ) : null}
+              </View>
+            </View>
+            <ThemedText style={[styles.accountAmount, isLiability && styles.liabilityAmount]} numberOfLines={1}>
+              {formatCurrency(account.balanceCents)}
+            </ThemedText>
+          </Pressable>
         </Animated.View>
       </ReanimatedSwipeable>
     </>
@@ -589,6 +586,7 @@ const styles = StyleSheet.create({
   filterPressed: { opacity: 0.76 },
   accountList: { backgroundColor: 'rgba(255,255,255,0.42)' },
   accountRow: { minHeight: 62, paddingHorizontal: 2, flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 9, backgroundColor: 'rgba(255,255,255,0.42)' },
+  accountRowPressed: { opacity: 0.68 },
   accountRowDivider: { height: 1, marginLeft: 49, backgroundColor: '#E3E7EA' },
   accountIcon: { width: 38, height: 38, borderRadius: 19, overflow: 'hidden', backgroundColor: '#F1F0EE', alignItems: 'center', justifyContent: 'center' },
   accountIconImage: { width: 30, height: 30, borderRadius: 999 },
@@ -607,7 +605,6 @@ const styles = StyleSheet.create({
   swipeActions: { flexDirection: 'row', alignSelf: 'stretch', alignItems: 'center', gap: 6, paddingLeft: 6 },
   swipeAction: { width: 60, height: 50, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   statusSwipeAction: { backgroundColor: '#C7C8C7' },
-  editSwipeAction: { backgroundColor: AppPalette.income },
   deleteSwipeAction: { backgroundColor: AppPalette.danger },
   swipeActionText: { ...Type.body, color: '#FFFFFF', fontWeight: FontWeight.semibold },
   swipeActionPressed: { opacity: 0.82, transform: [{ scale: 0.97 }] },
