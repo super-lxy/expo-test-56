@@ -32,7 +32,7 @@ export default function AppTabs() {
         }}
       />
       <Tabs.Screen
-        name="assets"
+        name="portfolio"
         options={{
           title: '资产',
           tabBarIcon: ({ color, size }) => <TabIcon name={{ ios: 'wallet.pass', android: 'wallet', web: 'wallet' }} color={color} size={size} />,

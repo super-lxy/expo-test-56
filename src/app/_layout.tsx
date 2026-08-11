@@ -22,6 +22,7 @@ export default function TabLayout() {
             <Stack.Screen name="accounts" options={{ presentation: 'modal' }} />
             <Stack.Screen name="accounts/create" options={{ presentation: 'modal' }} />
             <Stack.Screen name="accounts/new" options={{ presentation: 'card' }} />
+            <Stack.Screen name="accounts/hidden" options={{ presentation: 'card' }} />
             <Stack.Screen name="categories" options={{ presentation: 'modal' }} />
             <Stack.Screen name="categories/create" options={{ presentation: 'modal' }} />
           </Stack>

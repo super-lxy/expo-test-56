@@ -34,6 +34,11 @@ type CategoryImageRow = {
   icon_mime: string | null;
 };
 
+type TransactionDetailRow = TransactionRow & {
+  category_icon_blob: Uint8Array | null;
+  category_icon_mime: string | null;
+};
+
 function mapTransaction(row: TransactionRow, imageUri?: string): Transaction {
   return {
     id: row.id,
@@ -60,6 +65,42 @@ function mapTransaction(row: TransactionRow, imageUri?: string): Transaction {
 
 export class TransactionRepository {
   constructor(private readonly db: SQLiteDatabase) {}
+
+  async getById(id: string): Promise<Transaction | null> {
+    const row = await this.db.getFirstAsync<TransactionDetailRow>(`
+      SELECT
+        t.id,
+        t.type,
+        t.amount_cents,
+        t.category_id,
+        c.name AS category_name,
+        parent_c.name AS parent_category_name,
+        c.icon AS category_icon,
+        c.icon_type AS category_icon_type,
+        c.icon_blob AS category_icon_blob,
+        c.icon_mime AS category_icon_mime,
+        c.color AS category_color,
+        t.account_id,
+        COALESCE(a.name, '已删除资产') AS account_name,
+        t.transfer_account_id,
+        target_a.name AS transfer_account_name,
+        t.fee_cents,
+        t.discount_cents,
+        t.occurred_at,
+        t.note
+      FROM transactions t
+      INNER JOIN categories c ON c.id = t.category_id
+      LEFT JOIN categories parent_c ON parent_c.id = c.parent_id
+      LEFT JOIN accounts a ON a.id = t.account_id
+      LEFT JOIN accounts target_a ON target_a.id = t.transfer_account_id
+      WHERE t.id = ? AND t.deleted_at IS NULL
+    `, id);
+    if (!row) return null;
+    const imageUri = row.category_icon_type === 'image'
+      ? categoryIconDataUri(row.category_icon_blob, row.category_icon_mime) ?? undefined
+      : undefined;
+    return mapTransaction(row, imageUri);
+  }
 
   async list(): Promise<Transaction[]> {
     const [rows, categoryImages] = await Promise.all([
@@ -129,6 +170,40 @@ export class TransactionRepository {
     );
 
     return id;
+  }
+
+  async softDelete(id: string) {
+    const now = new Date().toISOString();
+    await this.db.runAsync(
+      `UPDATE transactions
+       SET deleted_at = ?, updated_at = ?
+       WHERE id = ? AND deleted_at IS NULL`,
+      now,
+      now,
+      id
+    );
+  }
+
+  async update(id: string, draft: TransactionDraft) {
+    const now = new Date().toISOString();
+    await this.db.runAsync(
+      `UPDATE transactions
+       SET type = ?, amount_cents = ?, category_id = ?, account_id = ?,
+           transfer_account_id = ?, fee_cents = ?, discount_cents = ?,
+           occurred_at = ?, note = ?, updated_at = ?
+       WHERE id = ? AND deleted_at IS NULL`,
+      draft.type,
+      draft.amountCents,
+      draft.categoryId,
+      draft.accountId,
+      draft.transferAccountId ?? null,
+      draft.feeCents ?? 0,
+      draft.discountCents ?? 0,
+      draft.occurredAt,
+      draft.note.trim(),
+      now,
+      id
+    );
   }
 
   async getMonthlySummary(date = new Date()): Promise<MonthlySummary> {

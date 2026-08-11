@@ -6,28 +6,45 @@ import { FontWeight, Numeric, Type } from '@/constants/theme';
 import { findBrandAssets } from '@/features/accounts/domain/account.brands';
 import { findTemplate } from '@/features/accounts/domain/account.templates';
 import type { Account } from '@/features/accounts/domain/account.types';
+import {
+  EXTERNAL_TRANSFER_ACCOUNT_DESCRIPTION,
+  EXTERNAL_TRANSFER_ACCOUNT_NAME,
+} from '@/features/accounts/domain/systemAccounts';
 
 export type TransferAdjustmentMode = 'fee' | 'discount';
+const externalTransferCardAsset = require('../../../../assets/images/system/external-transfer-card.png');
 
 function AccountField({
   account,
+  external = false,
   placeholder,
   label,
   onPress,
 }: {
   account?: Account;
+  external?: boolean;
   placeholder: string;
   label: string;
   onPress: () => void;
 }) {
-  const brand = account ? findBrandAssets(account.type) : undefined;
-  const templateLabel = account ? findTemplate(account.type)?.label : undefined;
+  const brand = account && !external ? findBrandAssets(account.type) : undefined;
+  const templateLabel = account && !external ? findTemplate(account.type)?.label : undefined;
 
   return (
     <View style={styles.accountLine}>
       <Pressable onPress={onPress} style={({ pressed }) => [styles.accountField, pressed && styles.pressed]}>
-        <View style={[styles.accountIcon, !brand?.icon && account ? { backgroundColor: `${account.color}18` } : null]}>
-          {brand?.icon ? (
+        <View style={[
+          styles.accountIcon,
+          external && styles.externalAccountIcon,
+          !brand?.icon && account && !external ? { backgroundColor: `${account.color}18` } : null,
+        ]}>
+          {external ? (
+            <Image
+              source={externalTransferCardAsset}
+              style={styles.externalAccountIconImage}
+              contentFit="contain"
+            />
+          ) : brand?.icon ? (
             <Image
               source={brand.icon}
               style={styles.accountIconImage}
@@ -39,10 +56,14 @@ function AccountField({
           )}
         </View>
         <View style={styles.accountInfo}>
-          <ThemedText style={[styles.accountName, !account && styles.placeholder]} numberOfLines={1}>
-            {account?.name ?? placeholder}
+          <ThemedText style={[styles.accountName, !account && !external && styles.placeholder]} numberOfLines={1}>
+            {external ? EXTERNAL_TRANSFER_ACCOUNT_NAME : account?.name ?? placeholder}
           </ThemedText>
-          {templateLabel ? (
+          {external ? (
+            <ThemedText style={styles.externalAccountDescription} numberOfLines={1}>
+              {EXTERNAL_TRANSFER_ACCOUNT_DESCRIPTION}
+            </ThemedText>
+          ) : templateLabel ? (
             <ThemedText type="small" themeColor="textSecondary">{templateLabel}</ThemedText>
           ) : null}
         </View>
@@ -58,6 +79,8 @@ function AccountField({
 export function TransferFormPanel({
   sourceAccount,
   targetAccount,
+  sourceExternal = false,
+  targetExternal = false,
   adjustmentMode,
   adjustmentAmount,
   adjustmentActive,
@@ -68,6 +91,8 @@ export function TransferFormPanel({
 }: {
   sourceAccount?: Account;
   targetAccount?: Account;
+  sourceExternal?: boolean;
+  targetExternal?: boolean;
   adjustmentMode: TransferAdjustmentMode;
   adjustmentAmount: string;
   adjustmentActive: boolean;
@@ -82,6 +107,7 @@ export function TransferFormPanel({
     <View style={styles.container}>
       <AccountField
         account={sourceAccount}
+        external={sourceExternal}
         placeholder="选择转出账户"
         label="扣款账户"
         onPress={onSelectSource}
@@ -98,6 +124,7 @@ export function TransferFormPanel({
 
       <AccountField
         account={targetAccount}
+        external={targetExternal}
         placeholder="选择转入账户"
         label="入款账户"
         onPress={onSelectTarget}
@@ -151,6 +178,9 @@ const styles = StyleSheet.create({
   accountIcon: { width: 38, height: 38, borderRadius: 19, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
   accountIconImage: { width: 32, height: 32, borderRadius: 16 },
   accountFallbackIcon: { fontSize: 17, color: '#7C858C' },
+  externalAccountIcon: { backgroundColor: '#EEF2EF' },
+  externalAccountIconImage: { width: 27, height: 27 },
+  externalAccountDescription: { ...Type.caption, color: '#89928C' },
   accountInfo: { flex: 1, minWidth: 0, gap: 1 },
   accountName: { ...Type.body, fontWeight: FontWeight.semibold },
   placeholder: { color: '#9AA2A8', fontWeight: FontWeight.medium },

@@ -16,12 +16,14 @@ export function TransactionKeypad({
   onBackspace,
   onSave,
   onSaveAndContinue,
+  secondaryActionLabel = '再记',
 }: {
   disabled?: boolean;
   onKeyPress: (key: string) => void;
   onBackspace: () => void;
   onSave: () => void;
   onSaveAndContinue: () => void;
+  secondaryActionLabel?: string;
 }) {
   return (
     <View style={styles.container}>
@@ -31,6 +33,7 @@ export function TransactionKeypad({
             const isOperatorKey = key === '− ÷' || key === '+ ×';
             const isSubmitKey = key === '保存' || key === '再记';
             const isDisabled = isOperatorKey || (disabled && isSubmitKey);
+            const label = key === '再记' ? secondaryActionLabel : key;
 
             return (
               <Pressable
@@ -39,7 +42,7 @@ export function TransactionKeypad({
                 disabled={isDisabled}
                 onPress={() => key === '⌫' ? onBackspace() : key === '保存' ? onSave() : key === '再记' ? onSaveAndContinue() : onKeyPress(key)}
                 style={({ pressed }) => [styles.key, key === '保存' && styles.saveKey, isDisabled && styles.disabledKey, pressed && styles.pressed]}>
-                <ThemedText style={[styles.keyText, isSubmitKey && styles.submitText, key === '保存' && styles.saveText]}>{key}</ThemedText>
+                <ThemedText style={[styles.keyText, isSubmitKey && styles.submitText, key === '保存' && styles.saveText]}>{label}</ThemedText>
               </Pressable>
             );
           })}

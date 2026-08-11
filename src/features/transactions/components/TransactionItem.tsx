@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { FontWeight, Glyph, Numeric, Type } from '@/constants/theme';
 import { CategoryIcon } from '@/features/categories/components/CategoryIcon';
+import { EXTERNAL_TRANSFER_ACCOUNT_ID } from '@/features/accounts/domain/systemAccounts';
 import type { Transaction } from '../domain/transaction.types';
 import { formatCurrency } from '@/shared/utils/currency';
 import { formatTime } from '@/shared/utils/date';
@@ -26,16 +27,31 @@ export function TransactionItem({
   transaction,
   isFirst = false,
   isLast = false,
+  onPress,
 }: {
   transaction: Transaction;
   isFirst?: boolean;
   isLast?: boolean;
+  onPress?: () => void;
 }) {
   const isIncome = transaction.type === 'income';
   const isTransfer = transaction.type === 'transfer';
   const isInitialBalance = transaction.categoryId === 'initial-balance';
   const isInternalTransfer = isTransfer || isInitialBalance;
-  const color = isInternalTransfer ? '#17212B' : isIncome ? '#167C80' : '#E06B52';
+  const initialBalancePrefix = transaction.accountId === EXTERNAL_TRANSFER_ACCOUNT_ID
+    ? '+'
+    : transaction.transferAccountId === EXTERNAL_TRANSFER_ACCOUNT_ID
+      ? '-'
+      : isIncome
+        ? '+'
+        : '-';
+  const color = isInitialBalance
+    ? initialBalancePrefix === '-' ? '#E06B52' : '#167C80'
+    : isTransfer
+      ? '#17212B'
+      : isIncome
+        ? '#167C80'
+        : '#E06B52';
   const accentColor = isInternalTransfer
     ? '#5B7184'
     : transaction.categoryColor;
@@ -47,7 +63,10 @@ export function TransactionItem({
     : transaction.categoryName;
   const subtitle = (() => {
     if (isInitialBalance) {
-      return `【资产初始化】初始余额 ${formatCurrency(transaction.amountCents)} · ${transaction.accountName}`;
+      const initializedAccountName = transaction.accountId === EXTERNAL_TRANSFER_ACCOUNT_ID
+        ? transaction.transferAccountName ?? '账户'
+        : transaction.accountName;
+      return `【资产初始化】初始余额 ${initialBalancePrefix}${formatCurrency(transaction.amountCents)} · ${initializedAccountName}`;
     }
     if (isTransfer) {
       return [
@@ -66,7 +85,11 @@ export function TransactionItem({
   })();
 
   return (
-    <Pressable style={styles.container}>
+    <Pressable
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={onPress ? `查看${title}账单详情` : undefined}
+      onPress={onPress}
+      style={styles.container}>
       {({ pressed }) => (
         <>
           <View style={styles.timelineRail}>
@@ -103,7 +126,7 @@ export function TransactionItem({
               </View>
               <View style={styles.amountCol}>
                 <ThemedText style={[styles.amount, { color }]} numberOfLines={1}>
-                  {isInternalTransfer ? '' : isIncome ? '+' : '-'}{formatCurrency(transaction.amountCents)}
+                  {isInitialBalance ? initialBalancePrefix : isTransfer ? '' : isIncome ? '+' : '-'}{formatCurrency(transaction.amountCents)}
                 </ThemedText>
                 <ThemedText style={styles.time}>{formatTime(transaction.occurredAt)}</ThemedText>
               </View>

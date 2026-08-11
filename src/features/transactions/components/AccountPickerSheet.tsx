@@ -8,6 +8,11 @@ import { FontWeight, Glyph, Numeric, Type } from '@/constants/theme';
 import { findBrandAssets } from '@/features/accounts/domain/account.brands';
 import { findTemplate } from '@/features/accounts/domain/account.templates';
 import type { AccountBalance } from '@/features/accounts/domain/account.types';
+import {
+  EXTERNAL_TRANSFER_ACCOUNT_DESCRIPTION,
+  EXTERNAL_TRANSFER_ACCOUNT_ID,
+  EXTERNAL_TRANSFER_ACCOUNT_NAME,
+} from '@/features/accounts/domain/systemAccounts';
 import { ElasticBoundaryScrollView } from '@/features/transactions/components/ElasticBoundaryScrollView';
 import { formatCurrency } from '@/shared/utils/currency';
 
@@ -16,6 +21,7 @@ export type AccountPickerKind = 'source' | 'target';
 const MAX_VISIBLE_ROWS = 6;
 const ACCOUNT_ROW_HEIGHT = 66;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
+const externalTransferCardAsset = require('../../../../assets/images/system/external-transfer-card.png');
 
 function formatAccountBalance(cents: number) {
   const amount = formatCurrency(Math.abs(cents));
@@ -61,6 +67,9 @@ export function AccountPickerSheet({
   const availableAccounts = activeKind === 'target'
     ? accounts.filter((account) => account.id !== sourceAccountId)
     : accounts;
+  const oppositeAccountId = activeKind === 'target' ? sourceAccountId : targetAccountId;
+  const showExternalAccount = transferMode && oppositeAccountId !== EXTERNAL_TRANSFER_ACCOUNT_ID;
+  const visibleRowCount = availableAccounts.length + (showExternalAccount ? 1 : 0);
 
   useEffect(() => {
     if (kind) {
@@ -123,12 +132,40 @@ export function AccountPickerSheet({
           <ElasticBoundaryScrollView
             style={[
               styles.accountScroll,
-              availableAccounts.length > MAX_VISIBLE_ROWS && { height: MAX_VISIBLE_ROWS * ACCOUNT_ROW_HEIGHT },
+              visibleRowCount > MAX_VISIBLE_ROWS && { height: MAX_VISIBLE_ROWS * ACCOUNT_ROW_HEIGHT },
             ]}
             contentContainerStyle={styles.accountList}
             showsVerticalScrollIndicator={false}
             bounces
             alwaysBounceVertical={false}>
+            {showExternalAccount ? (
+              <Pressable
+                style={[
+                  styles.accountRow,
+                  styles.externalAccountRow,
+                  availableAccounts.length === 0 && styles.accountRowLast,
+                ]}
+                onPress={() => onSelect(activeKind, EXTERNAL_TRANSFER_ACCOUNT_ID)}>
+                <View style={[styles.accountIconBox, styles.externalAccountIconBox]}>
+                  <Image
+                    source={externalTransferCardAsset}
+                    style={styles.externalAccountIconImage}
+                    contentFit="contain"
+                  />
+                </View>
+                <View style={styles.accountCopy}>
+                  <ThemedText style={styles.accountLabel} numberOfLines={1}>
+                    {EXTERNAL_TRANSFER_ACCOUNT_NAME}
+                  </ThemedText>
+                  <ThemedText style={styles.externalAccountDescription} numberOfLines={1}>
+                    {EXTERNAL_TRANSFER_ACCOUNT_DESCRIPTION}
+                  </ThemedText>
+                </View>
+                {selectedAccountId === EXTERNAL_TRANSFER_ACCOUNT_ID ? (
+                  <ThemedText style={styles.checkmark}>✓</ThemedText>
+                ) : null}
+              </Pressable>
+            ) : null}
             {availableAccounts.map((account, index) => {
               const brand = findBrandAssets(account.type);
               const typeLabel = findTemplate(account.type)?.label ?? '其他';
@@ -208,6 +245,10 @@ const styles = StyleSheet.create({
   accountIconBox: { width: 40, height: 40, borderRadius: 20, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F4F5F4' },
   accountIconImage: { width: 36, height: 36, borderRadius: 18 },
   accountFallbackIcon: { ...Glyph.md },
+  externalAccountRow: { backgroundColor: '#FBFCFB' },
+  externalAccountIconBox: { backgroundColor: '#EEF2EF' },
+  externalAccountIconImage: { width: 28, height: 28 },
+  externalAccountDescription: { ...Type.caption, color: '#89928C' },
   accountCopy: { flex: 1, minWidth: 0, alignItems: 'flex-start', gap: 3 },
   accountLabel: { maxWidth: '100%', ...Type.body, fontWeight: FontWeight.semibold, color: '#2D332F' },
   accountTypeBadge: { borderRadius: 5, paddingHorizontal: 5, paddingVertical: 1, backgroundColor: '#DDEFE1' },

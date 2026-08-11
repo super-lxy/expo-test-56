@@ -1,3 +1,4 @@
+import { EXTERNAL_TRANSFER_ACCOUNT_ID } from '@/features/accounts/domain/systemAccounts';
 import type { TransactionDraft } from './transaction.types';
 
 export function validateTransactionDraft(draft: TransactionDraft) {
@@ -12,6 +13,13 @@ export function validateTransactionDraft(draft: TransactionDraft) {
   }
   if (draft.type === 'transfer' && !draft.transferAccountId) {
     return '请选择转入账户';
+  }
+  if (
+    draft.type === 'transfer' &&
+    draft.accountId === EXTERNAL_TRANSFER_ACCOUNT_ID &&
+    draft.transferAccountId === EXTERNAL_TRANSFER_ACCOUNT_ID
+  ) {
+    return '至少选择一个具体账户';
   }
   if (draft.type === 'transfer' && draft.accountId === draft.transferAccountId) {
     return '转出和转入账户不能相同';

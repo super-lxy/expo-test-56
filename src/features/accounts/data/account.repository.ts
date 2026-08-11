@@ -1,6 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import type { Account, AccountBalance, AccountDraft, AccountStatus } from '../domain/account.types';
+import { EXTERNAL_TRANSFER_ACCOUNT_ID } from '../domain/systemAccounts';
 
 type AccountRow = {
   id: string;
@@ -45,8 +46,9 @@ export class AccountRepository {
       `SELECT id, name, type, kind, icon, color, initial_balance_cents, currency,
               credit_limit_cents, statement_day, due_day, status, include_in_net_worth, deleted_at
        FROM accounts
-       WHERE deleted_at IS NULL
-       ORDER BY created_at`
+       WHERE deleted_at IS NULL AND id != ?
+       ORDER BY created_at`,
+      EXTERNAL_TRANSFER_ACCOUNT_ID
     );
     return rows.map(mapAccount);
   }

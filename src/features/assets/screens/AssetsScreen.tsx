@@ -28,13 +28,14 @@ function formatPercent(value: number, total: number) {
 
 const accountLayoutTransition = LinearTransition.springify().damping(22).stiffness(220);
 const swipeActionsWidth = 198;
+const emptyAssetsIllustration = require('../../../../assets/images/brands/cash-icon.png');
 const swipeAnimationOptions = {
   damping: 22,
   stiffness: 220,
   overshootClamping: true,
 };
 
-type AccountFilter = 'all' | 'asset' | 'liability' | 'hidden';
+type AccountFilter = 'all' | 'asset' | 'liability';
 type DeleteMode = 'account' | 'accountAndTransactions';
 
 function createDeleteCode() {
@@ -85,7 +86,7 @@ function AccountSwipeActions({
   );
 }
 
-function AccountRow({
+export function AccountRow({
   account,
   total,
   showDivider,
@@ -96,6 +97,8 @@ function AccountRow({
   onDelete,
   onSwipeableOpen,
   onSwipeableClose,
+  showStatusBadge = true,
+  showInclusionBadge = false,
 }: {
   account: AccountBalance;
   total: number;
@@ -107,12 +110,17 @@ function AccountRow({
   onDelete: () => void;
   onSwipeableOpen: (swipeable: SwipeableMethods) => void;
   onSwipeableClose: (swipeable: SwipeableMethods) => void;
+  showStatusBadge?: boolean;
+  showInclusionBadge?: boolean;
 }) {
   const swipeableRef = useRef<SwipeableMethods | null>(null);
   const typeLabel = findTemplate(account.type)?.label ?? '其他';
   const brand = findBrandAssets(account.type);
   const isLiability = account.kind === 'liability';
-  const statusLabel = account.status === 'hidden' ? '隐藏' : account.status === 'frozen' ? '封存' : null;
+  const statusLabel = showStatusBadge
+    ? account.status === 'hidden' ? '隐藏' : account.status === 'frozen' ? '封存' : null
+    : null;
+  const inclusionLabel = showInclusionBadge && !account.includeInNetWorth ? '未计入合计' : null;
   return (
     <>
       {showDivider ? <View style={styles.accountRowDivider} /> : null}
@@ -166,11 +174,13 @@ function AccountRow({
             <ThemedText style={styles.accountName} numberOfLines={1}>{account.name}</ThemedText>
             <View style={styles.accountMeta}>
               <ThemedText type="small" themeColor="textSecondary">
-                {typeLabel}{isLiability ? ' · 负债' : account.status === 'hidden' ? '' : ` · ${formatPercent(account.balanceCents, total)}`}
+                {typeLabel}{isLiability ? ' · 负债' : account.includeInNetWorth ? ` · ${formatPercent(account.balanceCents, total)}` : ''}
               </ThemedText>
-              {statusLabel ? (
-                <View style={styles.statusBadge}>
-                  <ThemedText style={styles.statusBadgeText}>{statusLabel}</ThemedText>
+              {inclusionLabel || statusLabel ? (
+                <View style={[styles.statusBadge, inclusionLabel && styles.excludedBadge]}>
+                  <ThemedText style={[styles.statusBadgeText, inclusionLabel && styles.excludedBadgeText]}>
+                    {inclusionLabel ?? statusLabel}
+                  </ThemedText>
                 </View>
               ) : null}
             </View>
@@ -184,7 +194,7 @@ function AccountRow({
   );
 }
 
-function AssetDeleteFlow({
+export function AssetDeleteFlow({
   account,
   onClose,
   onDeleteOnly,
@@ -345,19 +355,15 @@ export function AssetsScreen() {
   const trend = useMemo(() => buildNetWorthTrend(netWorthAccounts, transactions), [netWorthAccounts, transactions]);
   const assetCount = accounts.filter((account) => account.kind !== 'liability').length;
   const liabilityCount = accounts.length - assetCount;
-  const effectiveAccountFilter = accountFilter === 'hidden' && hiddenAccounts.length === 0
-    ? 'all'
-    : accountFilter;
-  const filteredAccounts = effectiveAccountFilter === 'hidden' ? hiddenAccounts : accounts.filter((account) => {
-    if (effectiveAccountFilter === 'asset') return account.kind !== 'liability';
-    if (effectiveAccountFilter === 'liability') return account.kind === 'liability';
+  const filteredAccounts = accounts.filter((account) => {
+    if (accountFilter === 'asset') return account.kind !== 'liability';
+    if (accountFilter === 'liability') return account.kind === 'liability';
     return true;
   });
   const accountFilterOptions: [AccountFilter, string][] = [
     ['all', `全部 ${accounts.length}`],
     ['asset', `资产 ${assetCount}`],
     ['liability', `负债 ${liabilityCount}`],
-    ...(hiddenAccounts.length > 0 ? [['hidden', `隐藏 ${hiddenAccounts.length}`] as [AccountFilter, string]] : []),
   ];
 
   const closeOpenSwipeable = useCallback(() => {
@@ -373,15 +379,6 @@ export function AssetsScreen() {
   const handleSwipeableClose = useCallback((swipeable: SwipeableMethods) => {
     if (openSwipeableRef.current === swipeable) openSwipeableRef.current = null;
   }, []);
-
-  async function restoreAccount(id: string) {
-    try {
-      await updateAccountStatus(id, 'active');
-      if (hiddenAccounts.length === 1) setAccountFilter('all');
-    } catch (error) {
-      Alert.alert('无法恢复账户', error instanceof Error ? error.message : '请稍后重试');
-    }
-  }
 
   async function hideAccount(id: string) {
     try {
@@ -444,38 +441,53 @@ export function AssetsScreen() {
               </Pressable>
             </View>
 
-            <View style={styles.accountFilters}>
-              {accountFilterOptions.map(([key, label]) => (
-                <Pressable
-                  key={key}
-                  onPress={() => setAccountFilter(key)}
-                  style={({ pressed }) => [styles.accountFilter, pressed && styles.filterPressed]}>
-                  {effectiveAccountFilter === key ? (
-                    <Animated.View
-                      entering={FadeIn.duration(170)}
-                      exiting={FadeOut.duration(110)}
-                      style={styles.accountFilterActive}
-                    />
-                  ) : null}
-                  <ThemedText style={[styles.accountFilterText, effectiveAccountFilter === key && styles.accountFilterTextActive]}>
-                    {label}
-                  </ThemedText>
-                </Pressable>
-              ))}
-            </View>
+            {accounts.length > 0 ? (
+              <View style={styles.accountFilters}>
+                {accountFilterOptions.map(([key, label]) => (
+                  <Pressable
+                    key={key}
+                    onPress={() => setAccountFilter(key)}
+                    style={({ pressed }) => [styles.accountFilter, pressed && styles.filterPressed]}>
+                    {accountFilter === key ? (
+                      <Animated.View
+                        entering={FadeIn.duration(170)}
+                        exiting={FadeOut.duration(110)}
+                        style={styles.accountFilterActive}
+                      />
+                    ) : null}
+                    <ThemedText style={[styles.accountFilterText, accountFilter === key && styles.accountFilterTextActive]}>
+                      {label}
+                    </ThemedText>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
 
-            <View style={styles.accountList}>
-              {filteredAccounts.length > 0 ? filteredAccounts.map((account, index) => (
+            {accounts.length === 0 ? (
+              <View style={styles.emptyAssetState}>
+                <View style={styles.emptyIllustration}>
+                  <Image
+                    source={emptyAssetsIllustration}
+                    style={styles.emptyIllustrationImage}
+                    contentFit="contain"
+                  />
+                </View>
+                <ThemedText style={styles.emptyAssetTitle}>还没有发现资产账户</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary" style={styles.emptyAssetDescription}>
+                  试着添加一个吧～
+                </ThemedText>
+              </View>
+            ) : (
+              <View style={styles.accountList}>
+                {filteredAccounts.length > 0 ? filteredAccounts.map((account, index) => (
                 <AccountRow
                   key={account.id}
                   account={account}
                   total={totalAssets}
                   showDivider={index > 0}
                   index={index}
-                  statusActionLabel={effectiveAccountFilter === 'hidden' ? '恢复' : '隐藏'}
-                  onStatusAction={effectiveAccountFilter === 'hidden'
-                    ? () => { void restoreAccount(account.id); }
-                    : () => { void hideAccount(account.id); }}
+                  statusActionLabel="隐藏"
+                  onStatusAction={() => { void hideAccount(account.id); }}
                   onSwipeableOpen={handleSwipeableOpen}
                   onSwipeableClose={handleSwipeableClose}
                   onEdit={() => router.push({
@@ -484,32 +496,47 @@ export function AssetsScreen() {
                   })}
                   onDelete={() => setDeleteTarget(account)}
                 />
-              )) : (
-                <View style={styles.emptyAccounts}>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {effectiveAccountFilter === 'hidden'
-                      ? '暂无隐藏账户'
-                      : accounts.length === 0
-                        ? '还没有账户，点击右上角添加'
-                        : '这个分类下暂无账户'}
-                  </ThemedText>
-                </View>
-              )}
-            </View>
+                )) : (
+                  <View style={styles.emptyAccounts}>
+                    <ThemedText type="small" themeColor="textSecondary">这个分类下暂无账户</ThemedText>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {hiddenAccounts.length > 0 ? (
+              <Pressable
+                onPress={() => router.push('/accounts/hidden')}
+                accessibilityRole="button"
+                accessibilityLabel={`查看隐藏资产，共 ${hiddenAccounts.length} 个账户`}
+                hitSlop={8}
+                style={({ pressed }) => [styles.hiddenAssetsLink, pressed && styles.hiddenAssetsLinkPressed]}>
+                <ThemedText style={styles.hiddenAssetsLinkText}>查看隐藏资产</ThemedText>
+                <SymbolView
+                  name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
+                  size={14}
+                  tintColor="#AEB4B0"
+                />
+              </Pressable>
+            ) : null}
           </Animated.View>
 
-          <Animated.View entering={FadeInDown.duration(300).delay(160)} style={styles.trendHeader}>
-            <ThemedText style={styles.sectionTitle}>资产走势图</ThemedText>
-            <View style={styles.rangeControl}>
-              <Pressable onPress={() => setRange('all')} style={[styles.rangeButton, range === 'all' && styles.rangeSelected]}><ThemedText type="small">全部</ThemedText></Pressable>
-              <Pressable onPress={() => setRange('day')} style={[styles.rangeButton, range === 'day' && styles.rangeSelected]}><ThemedText type="small">日</ThemedText></Pressable>
-              <Pressable onPress={() => setRange('week')} style={[styles.rangeButton, range === 'week' && styles.rangeSelected]}><ThemedText type="small">周</ThemedText></Pressable>
-              <Pressable onPress={() => setRange('month')} style={[styles.rangeButton, range === 'month' && styles.rangeSelected]}><ThemedText type="small">月</ThemedText></Pressable>
-            </View>
-          </Animated.View>
-          <Animated.View entering={FadeInDown.duration(300).delay(190)} style={styles.chartCard}>
-            <NetWorthChart values={trend} lineColor="#77736D" areaColor="#D6D2CA" height={104} />
-          </Animated.View>
+          {accounts.length > 0 ? (
+            <>
+              <Animated.View entering={FadeInDown.duration(300).delay(160)} style={styles.trendHeader}>
+                <ThemedText style={styles.sectionTitle}>资产走势图</ThemedText>
+                <View style={styles.rangeControl}>
+                  <Pressable onPress={() => setRange('all')} style={[styles.rangeButton, range === 'all' && styles.rangeSelected]}><ThemedText type="small">全部</ThemedText></Pressable>
+                  <Pressable onPress={() => setRange('day')} style={[styles.rangeButton, range === 'day' && styles.rangeSelected]}><ThemedText type="small">日</ThemedText></Pressable>
+                  <Pressable onPress={() => setRange('week')} style={[styles.rangeButton, range === 'week' && styles.rangeSelected]}><ThemedText type="small">周</ThemedText></Pressable>
+                  <Pressable onPress={() => setRange('month')} style={[styles.rangeButton, range === 'month' && styles.rangeSelected]}><ThemedText type="small">月</ThemedText></Pressable>
+                </View>
+              </Animated.View>
+              <Animated.View entering={FadeInDown.duration(300).delay(190)} style={styles.chartCard}>
+                <NetWorthChart values={trend} lineColor="#77736D" areaColor="#D6D2CA" height={104} />
+              </Animated.View>
+            </>
+          ) : null}
         </ScrollView>
       </SafeAreaView>
       {deleteTarget ? (
@@ -569,6 +596,8 @@ const styles = StyleSheet.create({
   accountMeta: { minHeight: 18, flexDirection: 'row', alignItems: 'center', gap: 5 },
   statusBadge: { borderRadius: 7, paddingHorizontal: 5, paddingVertical: 1, backgroundColor: '#E8E9E7' },
   statusBadgeText: { ...Type.caption, color: '#77736D', fontWeight: FontWeight.semibold },
+  excludedBadge: { backgroundColor: '#F4EBDD' },
+  excludedBadgeText: { color: '#8D7047' },
   accountAmount: { maxWidth: 120, ...Type.body, ...Numeric, fontWeight: FontWeight.semibold, color: '#5C5954' },
   liabilityAmount: { color: '#C4432F' },
   swipeContainer: { overflow: 'hidden', backgroundColor: '#F5F7FA' },
@@ -611,6 +640,14 @@ const styles = StyleSheet.create({
   deleteConfirmButtonPressed: { opacity: 0.78 },
   deleteConfirmButtonText: { ...Type.headline, color: '#17212B', fontWeight: FontWeight.semibold },
   emptyAccounts: { minHeight: 54, alignItems: 'center', justifyContent: 'center' },
+  emptyAssetState: { minHeight: 350, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22, paddingTop: 4, paddingBottom: 30 },
+  emptyIllustration: { width: 184, height: 164, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
+  emptyIllustrationImage: { width: 158, height: 158 },
+  emptyAssetTitle: { ...Type.headline, color: '#6F7471', fontWeight: FontWeight.medium },
+  emptyAssetDescription: { maxWidth: 280, marginTop: 3, textAlign: 'center', color: '#AFB4B1', lineHeight: 19 },
+  hiddenAssetsLink: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 2, marginTop: 3, paddingHorizontal: 16 },
+  hiddenAssetsLinkPressed: { opacity: 0.52 },
+  hiddenAssetsLinkText: { ...Type.subhead, color: '#A9AFAB', fontWeight: FontWeight.medium },
   trendHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   rangeControl: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   rangeButton: { borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 },

@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -9,6 +9,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { FontWeight, Glyph, Numeric, Type } from '@/constants/theme';
 import { findBrandAssets } from '@/features/accounts/domain/account.brands';
+import { EXTERNAL_TRANSFER_ACCOUNT_ID } from '@/features/accounts/domain/systemAccounts';
+import type { Category } from '@/features/categories/domain/category.types';
 import { AccountPickerSheet, type AccountPickerKind } from '@/features/transactions/components/AccountPickerSheet';
 import { CategoryGrid } from '@/features/transactions/components/CategoryGrid';
 import {
@@ -16,8 +18,9 @@ import {
   type TransferAdjustmentMode,
 } from '@/features/transactions/components/TransferFormPanel';
 import { TransactionKeypad } from '@/features/transactions/components/TransactionKeypad';
-import type { TransactionType } from '@/features/transactions/domain/transaction.types';
+import type { TransactionDraft, TransactionType } from '@/features/transactions/domain/transaction.types';
 import { createTransaction } from '@/features/transactions/application/createTransaction';
+import { updateTransaction } from '@/features/transactions/application/updateTransaction';
 import { useTransactionFormData, useTransactionRepository } from '@/features/transactions/hooks/useTransactions';
 import { parseAmountToCents } from '@/shared/utils/currency';
 import { formatDateTime } from '@/shared/utils/date';
@@ -32,8 +35,15 @@ const TYPE_OPTIONS: { label: string; type?: TransactionType }[] = [
   { label: '退款' },
 ];
 
+function centsToInput(cents: number) {
+  return (cents / 100).toFixed(2);
+}
+
 export function TransactionFormScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ transactionId?: string }>();
+  const transactionId = typeof params.transactionId === 'string' ? params.transactionId : null;
+  const isEditing = transactionId !== null;
   const theme = useTheme();
   const repository = useTransactionRepository();
   const [type, setType] = useState<TransactionType>('expense');
@@ -62,31 +72,99 @@ export function TransactionFormScreen() {
     return () => { show.remove(); hide.remove(); };
   }, []);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingExisting, setIsLoadingExisting] = useState(isEditing);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const submittingRef = useRef(false);
   const noteRef = useRef<TextInput>(null);
   const { categories, accounts } = useTransactionFormData(type === 'income' ? 'income' : 'expense');
+  const formCategories = editingCategory && !categories.some((category) => category.id === editingCategory.id)
+    ? [editingCategory, ...categories]
+    : categories;
+
+  useEffect(() => {
+    if (!transactionId) return;
+
+    let cancelled = false;
+    void repository.getById(transactionId)
+      .then((existing) => {
+        if (cancelled) return;
+        if (!existing) {
+          Alert.alert('账单不存在', '这条账单可能已被删除。', [
+            { text: '返回', onPress: () => router.back() },
+          ]);
+          return;
+        }
+
+        setType(existing.type);
+        setAmount(centsToInput(existing.amountCents));
+        const adjustmentMode: TransferAdjustmentMode = existing.discountCents > 0 ? 'discount' : 'fee';
+        setTransferAdjustmentMode(adjustmentMode);
+        setTransferAdjustment(centsToInput(
+          adjustmentMode === 'discount' ? existing.discountCents : existing.feeCents
+        ));
+        setActiveAmountField('amount');
+        setNote(existing.note);
+        setCategoryId(existing.categoryId);
+        setEditingCategory({
+          id: existing.categoryId,
+          name: existing.categoryName,
+          type: existing.type === 'income' ? 'income' : 'expense',
+          parentId: null,
+          icon: existing.categoryIcon,
+          iconType: existing.categoryIconType,
+          iconBlob: null,
+          iconMime: null,
+          color: existing.categoryColor,
+        });
+        setAccountId(existing.accountId);
+        setTransferAccountId(existing.transferAccountId ?? '');
+        setOccurredAt(new Date(existing.occurredAt));
+        setIsLoadingExisting(false);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        Alert.alert('无法读取账单', error instanceof Error ? error.message : '请稍后重试', [
+          { text: '返回', onPress: () => router.back() },
+        ]);
+      });
+
+    return () => { cancelled = true; };
+  }, [repository, router, transactionId]);
 
   // 用 derive 代替 effect 纠正 state，避免额外的渲染循环。
   // state 只记录用户的原始选择，render 时再 clamp 到合法值。
-  const effectiveAccountId = accounts.length > 0 && !accounts.some((a) => a.id === accountId)
+  const accountIdIsAllowed = accounts.some((account) => account.id === accountId)
+    || (type === 'transfer' && accountId === EXTERNAL_TRANSFER_ACCOUNT_ID);
+  const effectiveAccountId = accounts.length > 0 && !accountIdIsAllowed
     ? accounts[0].id
     : accountId;
   const effectiveTransferAccountId = (() => {
-    if (accounts.length === 0) return transferAccountId;
-    if (!transferAccountId || transferAccountId === effectiveAccountId || !accounts.some((a) => a.id === transferAccountId)) {
-      return accounts.find((a) => a.id !== effectiveAccountId)?.id ?? '';
+    const isExternalTarget = transferAccountId === EXTERNAL_TRANSFER_ACCOUNT_ID;
+    const isConcreteTarget = accounts.some((account) => account.id === transferAccountId);
+    if (
+      transferAccountId
+      && transferAccountId !== effectiveAccountId
+      && (isConcreteTarget || (isExternalTarget && effectiveAccountId !== EXTERNAL_TRANSFER_ACCOUNT_ID))
+    ) {
+      return transferAccountId;
     }
-    return transferAccountId;
+    const concreteFallback = accounts.find((account) => account.id !== effectiveAccountId)?.id;
+    if (concreteFallback) return concreteFallback;
+    return effectiveAccountId && effectiveAccountId !== EXTERNAL_TRANSFER_ACCOUNT_ID
+      ? EXTERNAL_TRANSFER_ACCOUNT_ID
+      : '';
   })();
   const effectiveCategoryId = (() => {
-    if (categories.length === 0 || categories.some((c) => c.id === categoryId)) return categoryId;
-    const root = categories.find((c) => c.parentId === null);
-    const defaultCat = root ? (categories.find((c) => c.parentId === root.id) ?? root) : undefined;
+    if (formCategories.length === 0 || formCategories.some((c) => c.id === categoryId)) return categoryId;
+    const root = formCategories.find((c) => c.parentId === null);
+    const defaultCat = root ? (formCategories.find((c) => c.parentId === root.id) ?? root) : undefined;
     return defaultCat?.id ?? categoryId;
   })();
 
   const selectedAccount = accounts.find((account) => account.id === effectiveAccountId);
   const selectedTransferAccount = accounts.find((account) => account.id === effectiveTransferAccountId);
+  const sourceAccountIsExternal = effectiveAccountId === EXTERNAL_TRANSFER_ACCOUNT_ID;
+  const targetAccountIsExternal = effectiveTransferAccountId === EXTERNAL_TRANSFER_ACCOUNT_ID;
   const selectedAccountBrand = selectedAccount ? findBrandAssets(selectedAccount.type) : undefined;
 
   function openAccountPicker(kind: AccountPickerKind) {
@@ -164,7 +242,13 @@ export function TransactionFormScreen() {
     submittingRef.current = true;
     setIsSubmitting(true);
     try {
-      await createTransaction(repository, {
+      let submittedCategoryId = effectiveCategoryId;
+      if (type === 'transfer') {
+        submittedCategoryId = isEditing && categoryId === 'initial-balance'
+          ? 'initial-balance'
+          : 'transfer';
+      }
+      const draft: TransactionDraft = {
         type,
         amountCents: parseAmountToCents(amount),
         feeCents: type === 'transfer' && transferAdjustmentMode === 'fee'
@@ -173,18 +257,25 @@ export function TransactionFormScreen() {
         discountCents: type === 'transfer' && transferAdjustmentMode === 'discount'
           ? parseAmountToCents(transferAdjustment)
           : 0,
-        categoryId: type === 'transfer' ? 'transfer' : effectiveCategoryId,
+        categoryId: submittedCategoryId,
         accountId: effectiveAccountId,
         transferAccountId: type === 'transfer' ? effectiveTransferAccountId : undefined,
         occurredAt: occurredAt.toISOString(),
         note,
-      });
-      if (continueEntry) {
+      };
+      if (transactionId) {
+        await updateTransaction(repository, transactionId, draft);
+      } else {
+        await createTransaction(repository, draft);
+      }
+
+      if (continueEntry && !transactionId) {
         setAmount('');
         setTransferAdjustment('');
         setActiveAmountField('amount');
         setNote('');
       } else {
+        Keyboard.dismiss();
         router.back();
       }
     } catch (error) {
@@ -193,6 +284,20 @@ export function TransactionFormScreen() {
       submittingRef.current = false;
       setIsSubmitting(false);
     }
+  }
+
+  const waitingForFormData = isEditing
+    && (accounts.length === 0 || (type !== 'transfer' && formCategories.length === 0));
+
+  if (isLoadingExisting || waitingForFormData) {
+    return (
+      <ThemedView style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="#F5F7FA" />
+        <SafeAreaView edges={['top', 'bottom']} style={styles.loadingContainer}>
+          <ThemedText style={styles.loadingText}>正在读取账单…</ThemedText>
+        </SafeAreaView>
+      </ThemedView>
+    );
   }
 
   return (
@@ -224,7 +329,7 @@ export function TransactionFormScreen() {
           ) : null}
           {type !== 'transfer' ? (
             <CategoryGrid
-              categories={categories}
+              categories={formCategories}
               selectedCategoryId={effectiveCategoryId}
               onCategoryChange={setCategoryId}
               onSettingsPress={() => router.push('/categories')}
@@ -242,6 +347,8 @@ export function TransactionFormScreen() {
             <TransferFormPanel
               sourceAccount={selectedAccount}
               targetAccount={selectedTransferAccount}
+              sourceExternal={sourceAccountIsExternal}
+              targetExternal={targetAccountIsExternal}
               adjustmentMode={transferAdjustmentMode}
               adjustmentAmount={transferAdjustment}
               adjustmentActive={activeAmountField === 'adjustment'}
@@ -319,7 +426,21 @@ export function TransactionFormScreen() {
         <View
           style={{ opacity: keypadVisible ? 1 : 0 }}
           pointerEvents={keypadVisible ? 'auto' : 'none'}>
-          <TransactionKeypad disabled={isSubmitting} onKeyPress={handleKeyPress} onBackspace={handleBackspace} onSave={() => void handleSubmit()} onSaveAndContinue={() => void handleSubmit(true)} />
+          <TransactionKeypad
+            disabled={isSubmitting}
+            secondaryActionLabel={isEditing ? '取消' : '再记'}
+            onKeyPress={handleKeyPress}
+            onBackspace={handleBackspace}
+            onSave={() => void handleSubmit()}
+            onSaveAndContinue={() => {
+              if (isEditing) {
+                Keyboard.dismiss();
+                router.back();
+              } else {
+                void handleSubmit(true);
+              }
+            }}
+          />
         </View>
         <Modal visible={showDatePicker} transparent animationType="fade" onRequestClose={() => setShowDatePicker(false)}>
           <View style={styles.pickerBackdrop}>
@@ -354,6 +475,8 @@ export function TransactionFormScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
   safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
+  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
+  loadingText: { ...Type.body, color: '#71808C', fontWeight: FontWeight.medium },
   topPanel: { backgroundColor: '#F5F7FA', paddingHorizontal: 8, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: '#EEF0F2' },
   header: { minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerSideButton: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },

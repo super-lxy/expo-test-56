@@ -13,6 +13,7 @@ import { createAccount } from '../application/createAccount';
 import { findBrandAssets } from '../domain/account.brands';
 import { findTemplate } from '../domain/account.templates';
 import type { AccountStatus } from '../domain/account.types';
+import { EXTERNAL_TRANSFER_ACCOUNT_ID } from '../domain/systemAccounts';
 import { useAccountRepository } from '../hooks/useAccountRepository';
 
 // ─── 工具函数 ─────────────────────────────────────────────────────────────────
@@ -277,10 +278,20 @@ export function AccountFormScreen() {
         const db = repository['db'] as import('expo-sqlite').SQLiteDatabase;
         const now = new Date().toISOString();
         const txId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        const sourceAccountId = isLiability ? createdAccountId : EXTERNAL_TRANSFER_ACCOUNT_ID;
+        const targetAccountId = isLiability ? EXTERNAL_TRANSFER_ACCOUNT_ID : createdAccountId;
         await db.runAsync(
-          `INSERT INTO transactions (id, type, amount_cents, category_id, account_id, occurred_at, note, created_at, updated_at)
-           VALUES (?, ?, ?, 'initial-balance', ?, ?, '资产初始化', ?, ?)`,
-          txId, isLiability ? 'expense' : 'income', initialBalanceCents, createdAccountId, now, now, now
+          `INSERT INTO transactions
+           (id, type, amount_cents, category_id, account_id, transfer_account_id,
+            occurred_at, note, created_at, updated_at)
+           VALUES (?, 'transfer', ?, 'initial-balance', ?, ?, ?, '资产初始化', ?, ?)`,
+          txId,
+          initialBalanceCents,
+          sourceAccountId,
+          targetAccountId,
+          now,
+          now,
+          now
         );
       }
       router.dismissAll();
@@ -482,11 +493,15 @@ export function AccountFormScreen() {
               <ThemedText style={s.toggleLabel}>资产状态</ThemedText>
               <StatusSegment value={status} onChange={setStatus} compact />
             </View>
-            {/* 计入总资产 */}
+            {/* 是否计入当前资产池的合计 */}
             <View style={[s.toggleRow, s.simpleNetWorthRow]}>
               <View style={s.toggleInfo}>
-                <ThemedText style={s.toggleLabel}>计入总资产</ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">是否加入总资产计算</ThemedText>
+                <ThemedText style={s.toggleLabel}>计入资产合计</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {status === 'hidden'
+                    ? '是否加入隐藏资产的净资产合计'
+                    : '是否加入主资产页的净资产合计'}
+                </ThemedText>
               </View>
               <Switch
                 value={includeInNetWorth}

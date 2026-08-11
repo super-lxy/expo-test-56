@@ -1,5 +1,6 @@
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useHideTabBarOnScroll } from '@/hooks/use-hide-tab-bar-on-scroll';
 
@@ -7,19 +8,30 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { FontWeight, Glyph, Numeric, Spacing, Type } from '@/constants/theme';
 import { useAccounts } from '@/features/accounts/hooks/useAccounts';
+import { TransactionDetailModal } from '@/features/transactions/components/TransactionDetailModal';
 import { TransactionDayHeader, TransactionItem } from '@/features/transactions/components/TransactionItem';
-import { useMonthlySummary, useTransactions, useTotalSummary } from '@/features/transactions/hooks/useTransactions';
+import type { Transaction } from '@/features/transactions/domain/transaction.types';
+import {
+  useMonthlySummary,
+  useTransactionRepository,
+  useTransactions,
+  useTotalSummary,
+} from '@/features/transactions/hooks/useTransactions';
 import { formatCurrency } from '@/shared/utils/currency';
 import { dateKey, formatDayGroup, formatMonth } from '@/shared/utils/date';
 
 type HomeView = 'overview' | 'calendar';
 
 export function DashboardScreen() {
+  const router = useRouter();
+  const repository = useTransactionRepository();
   const [view, setView] = useState<HomeView>('overview');
-  const { summary } = useMonthlySummary();
-  const { transactions } = useTransactions();
-  const { accounts } = useAccounts();
-  const totalSummary = useTotalSummary();
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const { summary, refresh: refreshMonthlySummary } = useMonthlySummary();
+  const { transactions, refresh: refreshTransactions } = useTransactions();
+  const { accounts, refresh: refreshAccounts } = useAccounts();
+  const { summary: totalSummary, refresh: refreshTotalSummary } = useTotalSummary();
   const netWorthAccounts = accounts.filter((account) => account.includeInNetWorth);
   const totalAssets = netWorthAccounts.filter((a) => a.kind !== 'liability').reduce((sum, a) => sum + a.balanceCents, 0);
   const liabilities = netWorthAccounts.filter((a) => a.kind === 'liability').reduce((sum, a) => sum + Math.abs(a.balanceCents), 0);
@@ -33,6 +45,44 @@ export function DashboardScreen() {
     else result.push({ key, label: formatDayGroup(transaction.occurredAt), items: [transaction] });
     return result;
   }, []);
+
+  function confirmDelete(transaction: Transaction) {
+    Alert.alert(
+      '删除账单',
+      `确定删除这笔${transaction.type === 'income' ? '收入' : transaction.type === 'transfer' ? '转账' : '支出'}记录吗？`,
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '删除',
+          style: 'destructive',
+          onPress: () => {
+            setDeleting(true);
+            void repository.softDelete(transaction.id)
+              .then(async () => {
+                setSelectedTransaction(null);
+                await Promise.all([
+                  refreshTransactions(),
+                  refreshMonthlySummary(),
+                  refreshTotalSummary(),
+                  refreshAccounts(),
+                ]);
+              })
+              .catch((error) => {
+                Alert.alert('无法删除', error instanceof Error ? error.message : '请稍后重试');
+              })
+              .finally(() => setDeleting(false));
+          },
+        },
+      ]
+    );
+  }
+
+  function editTransaction(transaction: Transaction) {
+    setSelectedTransaction(null);
+    setTimeout(() => {
+      router.push({ pathname: '/transaction/create', params: { transactionId: transaction.id } });
+    }, 320);
+  }
 
   return (
     <ThemedView style={styles.container}>
@@ -100,6 +150,7 @@ export function DashboardScreen() {
                         transaction={transaction}
                         isFirst={false}
                         isLast={groupIndex === groups.length - 1 && index === group.items.length - 1}
+                        onPress={() => setSelectedTransaction(transaction)}
                       />
                     ))}
                   </View>
@@ -121,6 +172,13 @@ export function DashboardScreen() {
           )}
         </ScrollView>
       </SafeAreaView>
+      <TransactionDetailModal
+        transaction={selectedTransaction}
+        deleting={deleting}
+        onClose={() => setSelectedTransaction(null)}
+        onDelete={confirmDelete}
+        onEdit={editTransaction}
+      />
     </ThemedView>
   );
 }

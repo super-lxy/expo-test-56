@@ -95,11 +95,15 @@ export function useTotalSummary() {
   const repository = useTransactionRepository();
   const [summary, setSummary] = useState({ totalIncomeCents: 0, totalExpenseCents: 0 });
 
+  const refresh = useCallback(async () => {
+    setSummary(await repository.getAllTimeSummary());
+  }, [repository]);
+
   useFocusEffect(
     useCallback(() => {
-      void repository.getAllTimeSummary().then(setSummary);
-    }, [repository])
+      void refresh();
+    }, [refresh])
   );
 
-  return summary;
+  return { summary, refresh };
 }

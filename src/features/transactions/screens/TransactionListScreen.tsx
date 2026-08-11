@@ -1,16 +1,24 @@
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { useRouter } from 'expo-router';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useHideTabBarOnScroll } from '@/hooks/use-hide-tab-bar-on-scroll';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { FontWeight, Glyph, Spacing, Type } from '@/constants/theme';
+import { TransactionDetailModal } from '../components/TransactionDetailModal';
 import { TransactionDayHeader, TransactionItem } from '../components/TransactionItem';
-import { useTransactions } from '../hooks/useTransactions';
+import type { Transaction } from '../domain/transaction.types';
+import { useTransactionRepository, useTransactions } from '../hooks/useTransactions';
 import { dateKey, formatDayGroup } from '@/shared/utils/date';
 
 export function TransactionListScreen() {
-  const { transactions, loading } = useTransactions();
+  const router = useRouter();
+  const repository = useTransactionRepository();
+  const { transactions, loading, refresh } = useTransactions();
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const onScroll = useHideTabBarOnScroll();
   const groups = transactions.reduce<{ key: string; label: string; items: typeof transactions }[]>((result, transaction) => {
     const key = dateKey(transaction.occurredAt);
@@ -19,6 +27,39 @@ export function TransactionListScreen() {
     else result.push({ key, label: formatDayGroup(transaction.occurredAt), items: [transaction] });
     return result;
   }, []);
+
+  function confirmDelete(transaction: Transaction) {
+    Alert.alert(
+      '删除账单',
+      `确定删除这笔${transaction.type === 'income' ? '收入' : transaction.type === 'transfer' ? '转账' : '支出'}记录吗？`,
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '删除',
+          style: 'destructive',
+          onPress: () => {
+            setDeleting(true);
+            void repository.softDelete(transaction.id)
+              .then(async () => {
+                setSelectedTransaction(null);
+                await refresh();
+              })
+              .catch((error) => {
+                Alert.alert('无法删除', error instanceof Error ? error.message : '请稍后重试');
+              })
+              .finally(() => setDeleting(false));
+          },
+        },
+      ]
+    );
+  }
+
+  function editTransaction(transaction: Transaction) {
+    setSelectedTransaction(null);
+    setTimeout(() => {
+      router.push({ pathname: '/transaction/create', params: { transactionId: transaction.id } });
+    }, 320);
+  }
 
   return (
     <ThemedView style={styles.container}>
@@ -39,6 +80,7 @@ export function TransactionListScreen() {
                   transaction={item}
                   isFirst={false}
                   isLast={groupIndex === groups.length - 1 && index === group.items.length - 1}
+                  onPress={() => setSelectedTransaction(item)}
                 />
               ))}
             </View>
@@ -52,6 +94,13 @@ export function TransactionListScreen() {
           ) : null}
         </ScrollView>
       </SafeAreaView>
+      <TransactionDetailModal
+        transaction={selectedTransaction}
+        deleting={deleting}
+        onClose={() => setSelectedTransaction(null)}
+        onDelete={confirmDelete}
+        onEdit={editTransaction}
+      />
     </ThemedView>
   );
 }

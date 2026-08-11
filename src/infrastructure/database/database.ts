@@ -4,6 +4,10 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { Platform } from 'react-native';
 
 import {
+  EXTERNAL_TRANSFER_ACCOUNT_ID,
+  EXTERNAL_TRANSFER_ACCOUNT_NAME,
+} from '@/features/accounts/domain/systemAccounts';
+import {
   DEFAULT_EXPENSE_CATEGORIES,
   DEFAULT_EXPENSE_ROOT_RENAMES,
   DEFAULT_EXPENSE_ROOTS,
@@ -15,7 +19,7 @@ export const DATABASE_NAME = 'ledger.db';
 const internalTransferIconAsset = require('../../../assets/images/system/internal-transfer.png');
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
-  const DATABASE_VERSION = 16;
+  const DATABASE_VERSION = 17;
   const versionRow = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
   let currentVersion = versionRow?.user_version ?? 0;
   const isNewDatabase = currentVersion === 0;
@@ -222,13 +226,56 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   await ensureSystemCategories(db, now);
   await persistInternalTransferIcon(db);
 
+  // v17：资产初始化统一为「外部端点 ↔ 具体账户」的特殊转账。
+  // 外部端点是隐藏系统账户，不参与资产与净资产展示。
+  await ensureExternalTransferAccount(db, now);
+  if (currentVersion < 17) {
+    await migrateInitialBalancesToTransfers(db);
+  }
+
   if (isNewDatabase || currentVersion < 4) {
     await addDefaultSubcategories(db);
   }
 
-  currentVersion = 16;
+  currentVersion = 17;
 
   await db.execAsync(`PRAGMA user_version = ${currentVersion}`);
+}
+
+async function ensureExternalTransferAccount(db: SQLiteDatabase, now: string) {
+  await db.runAsync(
+    `INSERT OR IGNORE INTO accounts
+     (id, name, type, kind, icon, color, initial_balance_cents, currency,
+      status, include_in_net_worth, created_at)
+     VALUES (?, ?, 'other', 'asset', '▤', '#8B95A1', 0, 'CNY', 'hidden', 0, ?)`,
+    EXTERNAL_TRANSFER_ACCOUNT_ID,
+    EXTERNAL_TRANSFER_ACCOUNT_NAME,
+    now
+  );
+  await db.runAsync(
+    `UPDATE accounts
+     SET name = ?, status = 'hidden', include_in_net_worth = 0, deleted_at = NULL
+     WHERE id = ?`,
+    EXTERNAL_TRANSFER_ACCOUNT_NAME,
+    EXTERNAL_TRANSFER_ACCOUNT_ID
+  );
+}
+
+async function migrateInitialBalancesToTransfers(db: SQLiteDatabase) {
+  await db.runAsync(
+    `UPDATE transactions
+     SET type = 'transfer', transfer_account_id = account_id,
+         account_id = ?, fee_cents = 0, discount_cents = 0
+     WHERE category_id = 'initial-balance' AND type = 'income'`,
+    EXTERNAL_TRANSFER_ACCOUNT_ID
+  );
+  await db.runAsync(
+    `UPDATE transactions
+     SET type = 'transfer', transfer_account_id = ?,
+         fee_cents = 0, discount_cents = 0
+     WHERE category_id = 'initial-balance' AND type = 'expense'`,
+    EXTERNAL_TRANSFER_ACCOUNT_ID
+  );
 }
 
 async function renameDefaultExpenseRoots(db: SQLiteDatabase) {
