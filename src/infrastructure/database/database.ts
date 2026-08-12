@@ -19,7 +19,7 @@ export const DATABASE_NAME = 'ledger.db';
 const internalTransferIconAsset = require('../../../assets/images/system/internal-transfer.png');
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
-  const DATABASE_VERSION = 17;
+  const DATABASE_VERSION = 18;
   const versionRow = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
   let currentVersion = versionRow?.user_version ?? 0;
   const isNewDatabase = currentVersion === 0;
@@ -175,6 +175,39 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       ON transactions(occurred_at DESC);
     CREATE INDEX IF NOT EXISTS idx_transactions_deleted_at
       ON transactions(deleted_at);
+
+    CREATE TABLE IF NOT EXISTS tag_groups (
+      id TEXT PRIMARY KEY NOT NULL,
+      name TEXT NOT NULL,
+      scope TEXT NOT NULL DEFAULT 'common',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      archived_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS tags (
+      id TEXT PRIMARY KEY NOT NULL,
+      group_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      archived_at TEXT,
+      FOREIGN KEY (group_id) REFERENCES tag_groups(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS transaction_tags (
+      transaction_id TEXT NOT NULL,
+      tag_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (transaction_id, tag_id),
+      FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE,
+      FOREIGN KEY (tag_id) REFERENCES tags(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_tags_group_id ON tags(group_id);
+    CREATE INDEX IF NOT EXISTS idx_transaction_tags_tag_id ON transaction_tags(tag_id);
   `);
 
   const now = new Date().toISOString();
@@ -237,7 +270,7 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     await addDefaultSubcategories(db);
   }
 
-  currentVersion = 17;
+  currentVersion = 18;
 
   await db.execAsync(`PRAGMA user_version = ${currentVersion}`);
 }

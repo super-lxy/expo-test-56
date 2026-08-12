@@ -53,9 +53,9 @@ export function TransactionKeypad({
 }
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: AppPalette.surfaceMuted, paddingHorizontal: 9, paddingVertical: 7, gap: 4 },
+  container: { backgroundColor: AppPalette.surfaceMuted, paddingHorizontal: 9, paddingVertical: 5, gap: 3 },
   row: { flexDirection: 'row', gap: 4 },
-  key: { flex: 1, height: 55, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
+  key: { flex: 1, height: 50, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
   saveKey: { backgroundColor: AppPalette.primary },
   keyText: { ...Type.title, ...Numeric, color: '#2D3A45', fontWeight: FontWeight.regular },
   /**

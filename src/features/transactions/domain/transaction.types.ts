@@ -2,6 +2,12 @@ import type { CategoryIconType } from '@/features/categories/domain/category.typ
 
 export type TransactionType = 'income' | 'expense' | 'transfer';
 
+export type TransactionTag = {
+  id: string;
+  name: string;
+  groupName: string;
+};
+
 export type Transaction = {
   id: string;
   type: TransactionType;
@@ -20,6 +26,7 @@ export type Transaction = {
   discountCents: number;
   occurredAt: string;
   note: string;
+  tags: TransactionTag[];
 };
 
 export type TransactionDraft = {
@@ -32,6 +39,7 @@ export type TransactionDraft = {
   discountCents?: number;
   occurredAt: string;
   note: string;
+  tagIds?: string[];
 };
 
 export type MonthlySummary = {

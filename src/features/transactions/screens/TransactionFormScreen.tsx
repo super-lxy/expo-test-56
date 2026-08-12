@@ -19,6 +19,7 @@ import {
   type TransferAdjustmentMode,
 } from '@/features/transactions/components/TransferFormPanel';
 import { TransactionKeypad } from '@/features/transactions/components/TransactionKeypad';
+import { TagPickerSheet } from '@/features/tags/components/TagPickerSheet';
 import type { TransactionDraft, TransactionType } from '@/features/transactions/domain/transaction.types';
 import { createTransaction } from '@/features/transactions/application/createTransaction';
 import { updateTransaction } from '@/features/transactions/application/updateTransaction';
@@ -53,6 +54,10 @@ export function TransactionFormScreen() {
   const [transferAdjustmentMode, setTransferAdjustmentMode] = useState<TransferAdjustmentMode>('fee');
   const [activeAmountField, setActiveAmountField] = useState<'amount' | 'adjustment'>('amount');
   const [note, setNote] = useState('');
+  const [tagIds, setTagIds] = useState<string[]>([]);
+  const [showTagPicker, setShowTagPicker] = useState(false);
+  const [tagPickerMounted, setTagPickerMounted] = useState(false);
+  const openTagManagerAfterCloseRef = useRef(false);
   const [categoryId, setCategoryId] = useState('food');
   const [accountId, setAccountId] = useState('cash');
   const [transferAccountId, setTransferAccountId] = useState('');
@@ -76,7 +81,6 @@ export function TransactionFormScreen() {
   const [isLoadingExisting, setIsLoadingExisting] = useState(isEditing);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const submittingRef = useRef(false);
-  const noteRef = useRef<TextInput>(null);
   const { categories, accounts } = useTransactionFormData(type === 'income' ? 'income' : 'expense');
   const formCategories = editingCategory && !categories.some((category) => category.id === editingCategory.id)
     ? [editingCategory, ...categories]
@@ -105,6 +109,7 @@ export function TransactionFormScreen() {
         ));
         setActiveAmountField('amount');
         setNote(existing.note);
+        setTagIds(existing.tags.map((tag) => tag.id));
         setCategoryId(existing.categoryId);
         setEditingCategory({
           id: existing.categoryId,
@@ -181,6 +186,13 @@ export function TransactionFormScreen() {
   const handleAccountPickerClosed = useCallback(() => {
     setAccountPickerMounted(false);
   }, []);
+
+  const handleTagPickerClosed = useCallback(() => {
+    setTagPickerMounted(false);
+    if (!openTagManagerAfterCloseRef.current) return;
+    openTagManagerAfterCloseRef.current = false;
+    requestAnimationFrame(() => router.push('/tags'));
+  }, [router]);
 
   function handleTypeChange(nextType: TransactionType) {
     setType(nextType);
@@ -263,6 +275,7 @@ export function TransactionFormScreen() {
         transferAccountId: type === 'transfer' ? effectiveTransferAccountId : undefined,
         occurredAt: occurredAt.toISOString(),
         note,
+        tagIds,
       };
       if (transactionId) {
         await updateTransaction(repository, transactionId, draft);
@@ -275,6 +288,7 @@ export function TransactionFormScreen() {
         setTransferAdjustment('');
         setActiveAmountField('amount');
         setNote('');
+        setTagIds([]);
       } else {
         Keyboard.dismiss();
         router.back();
@@ -382,18 +396,20 @@ export function TransactionFormScreen() {
             <ThemedText style={styles.quickText} numberOfLines={1}>{selectedAccount?.name ?? '账户'}</ThemedText>
           </Pressable>
           <Pressable style={styles.quickOption}><ThemedText style={styles.quickOptionIcon}>🧾</ThemedText><ThemedText style={styles.quickText}>报销</ThemedText></Pressable>
-          <Pressable style={styles.quickOption}><ThemedText style={styles.quickOptionIcon}>#</ThemedText><ThemedText style={styles.quickText}>标签</ThemedText></Pressable>
+          <Pressable
+            onPress={() => {
+              setTagPickerMounted(true);
+              setShowTagPicker(true);
+            }}
+            style={[styles.quickOption, tagIds.length > 0 && styles.activeTagOption]}>
+            <ThemedText style={[styles.quickOptionIcon, tagIds.length > 0 && styles.activeTagText]}>#</ThemedText>
+            <ThemedText style={[styles.quickText, tagIds.length > 0 && styles.activeTagText]}>{tagIds.length > 0 ? `标签 ${tagIds.length}` : '标签'}</ThemedText>
+          </Pressable>
           <Pressable style={styles.quickOption}><ThemedText style={styles.quickOptionIcon}>∅</ThemedText><ThemedText style={styles.quickText}>不计入</ThemedText></Pressable>
         </View> : null}
 
         <View style={styles.inputBar}>
-          {keypadVisible ? (
-            <Pressable onPress={() => noteRef.current?.focus()} hitSlop={6} style={styles.noteToggle}>
-              <ThemedText style={styles.noteToggleIcon}>∧</ThemedText>
-            </Pressable>
-          ) : null}
           <TextInput
-            ref={noteRef}
             value={note}
             onChangeText={setNote}
             onSubmitEditing={() => Keyboard.dismiss()}
@@ -475,6 +491,18 @@ export function TransactionFormScreen() {
             closeAccountPicker();
           }}
         />
+        <TagPickerSheet
+          visible={showTagPicker}
+          mounted={tagPickerMounted}
+          selectedTagIds={tagIds}
+          onChange={setTagIds}
+          onClose={() => setShowTagPicker(false)}
+          onClosed={handleTagPickerClosed}
+          onManage={() => {
+            openTagManagerAfterCloseRef.current = true;
+            setShowTagPicker(false);
+          }}
+        />
       </SafeAreaView>
     </ThemedView>
   );
@@ -500,17 +528,17 @@ const styles = StyleSheet.create({
   settings: { ...Glyph.md, color: '#71808C' },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 4 },
-  quickOptions: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 9, paddingVertical: 6, gap: 5, backgroundColor: 'rgba(255,255,255,0.78)', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.82)' },
+  quickOptions: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 9, paddingVertical: 6, gap: 5 },
   // 药丸形带描边，参考图样式
-  quickOption: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 15, backgroundColor: 'rgba(241,243,245,0.88)' },
-  accountQuickOption: { maxWidth: 112, backgroundColor: 'rgba(229,246,248,0.92)' },
+  quickOption: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 15, backgroundColor: AppPalette.lineStrong },
+  accountQuickOption: { maxWidth: 112, backgroundColor: AppPalette.cyanSoft },
   quickAccountIconBox: { width: 18, height: 18, borderRadius: 9, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
   quickAccountIcon: { width: 17, height: 17, borderRadius: 8.5 },
   quickOptionIcon: { fontSize: 13, lineHeight: 16 },
   quickText: { ...Type.footnote, fontWeight: FontWeight.medium, color: '#3A4249' },
-  inputBar: { minHeight: 50, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, gap: 6, borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.86)', backgroundColor: 'rgba(255,255,255,0.84)' },
-  noteToggle: { width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: '#C8CDD2', alignItems: 'center', justifyContent: 'center' },
-  noteToggleIcon: { fontSize: 11, lineHeight: 14, color: '#8C96A0', fontWeight: FontWeight.medium, marginTop: -1 },
+  activeTagOption: { backgroundColor: AppPalette.lavenderSoft },
+  activeTagText: { color: AppPalette.primary },
+  inputBar: { minHeight: 50, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, gap: 6, borderTopWidth: 1, borderColor: AppPalette.lineStrong, backgroundColor: 'rgba(255,255,255,0.84)' },
   noteInput: { flex: 1, minWidth: 70, ...Type.body, paddingVertical: 8, color: '#6E7772' },
   datePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 7, paddingVertical: 7, borderRadius: 14, backgroundColor: '#F0F2F3' },
   dateIcon: { ...Glyph.sm, color: '#5A6B78' },

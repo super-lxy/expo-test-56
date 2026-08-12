@@ -28,6 +28,13 @@ type TransactionRow = {
   note: string;
 };
 
+type TransactionTagRow = {
+  transaction_id: string;
+  id: string;
+  name: string;
+  group_name: string;
+};
+
 type CategoryImageRow = {
   id: string;
   icon_blob: Uint8Array | null;
@@ -39,7 +46,7 @@ type TransactionDetailRow = TransactionRow & {
   category_icon_mime: string | null;
 };
 
-function mapTransaction(row: TransactionRow, imageUri?: string): Transaction {
+function mapTransaction(row: TransactionRow, imageUri?: string, tags: Transaction['tags'] = []): Transaction {
   return {
     id: row.id,
     type: row.type,
@@ -60,6 +67,7 @@ function mapTransaction(row: TransactionRow, imageUri?: string): Transaction {
     discountCents: row.discount_cents ?? 0,
     occurredAt: row.occurred_at,
     note: row.note,
+    tags,
   };
 }
 
@@ -96,14 +104,27 @@ export class TransactionRepository {
       WHERE t.id = ? AND t.deleted_at IS NULL
     `, id);
     if (!row) return null;
+    const tagRows = await this.db.getAllAsync<TransactionTagRow>(
+      `SELECT tt.transaction_id, t.id, t.name, g.name AS group_name
+       FROM transaction_tags tt
+       INNER JOIN tags t ON t.id = tt.tag_id
+       INNER JOIN tag_groups g ON g.id = t.group_id
+       WHERE tt.transaction_id = ?
+       ORDER BY g.sort_order, t.sort_order`,
+      id
+    );
     const imageUri = row.category_icon_type === 'image'
       ? categoryIconDataUri(row.category_icon_blob, row.category_icon_mime) ?? undefined
       : undefined;
-    return mapTransaction(row, imageUri);
+    return mapTransaction(row, imageUri, tagRows.map((tag) => ({
+      id: tag.id,
+      name: tag.name,
+      groupName: tag.group_name,
+    })));
   }
 
   async list(): Promise<Transaction[]> {
-    const [rows, categoryImages] = await Promise.all([
+    const [rows, categoryImages, tagRows] = await Promise.all([
       this.db.getAllAsync<TransactionRow>(`
         SELECT
           t.id,
@@ -136,6 +157,15 @@ export class TransactionRepository {
         FROM categories
         WHERE icon_type = 'image' AND icon_blob IS NOT NULL
       `),
+      this.db.getAllAsync<TransactionTagRow>(`
+        SELECT tt.transaction_id, t.id, t.name, g.name AS group_name
+        FROM transaction_tags tt
+        INNER JOIN tags t ON t.id = tt.tag_id
+        INNER JOIN tag_groups g ON g.id = t.group_id
+        INNER JOIN transactions tx ON tx.id = tt.transaction_id
+        WHERE tx.deleted_at IS NULL
+        ORDER BY g.sort_order, t.sort_order
+      `),
     ]);
     const imageUris = new Map(
       categoryImages.map((category) => [
@@ -143,31 +173,40 @@ export class TransactionRepository {
         categoryIconDataUri(category.icon_blob, category.icon_mime) ?? undefined,
       ])
     );
-    return rows.map((row) => mapTransaction(row, imageUris.get(row.category_id)));
+    const tagsByTransaction = new Map<string, Transaction['tags']>();
+    for (const tag of tagRows) {
+      const tags = tagsByTransaction.get(tag.transaction_id) ?? [];
+      tags.push({ id: tag.id, name: tag.name, groupName: tag.group_name });
+      tagsByTransaction.set(tag.transaction_id, tags);
+    }
+    return rows.map((row) => mapTransaction(row, imageUris.get(row.category_id), tagsByTransaction.get(row.id)));
   }
 
   async create(draft: TransactionDraft) {
     const now = new Date().toISOString();
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
-    await this.db.runAsync(
-      `INSERT INTO transactions
-       (id, type, amount_cents, category_id, account_id, transfer_account_id,
-        fee_cents, discount_cents, occurred_at, note, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      id,
-      draft.type,
-      draft.amountCents,
-      draft.categoryId,
-      draft.accountId,
-      draft.transferAccountId ?? null,
-      draft.feeCents ?? 0,
-      draft.discountCents ?? 0,
-      draft.occurredAt,
-      draft.note.trim(),
-      now,
-      now
-    );
+    await this.db.withExclusiveTransactionAsync(async (transaction) => {
+      await transaction.runAsync(
+        `INSERT INTO transactions
+         (id, type, amount_cents, category_id, account_id, transfer_account_id,
+          fee_cents, discount_cents, occurred_at, note, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        id,
+        draft.type,
+        draft.amountCents,
+        draft.categoryId,
+        draft.accountId,
+        draft.transferAccountId ?? null,
+        draft.feeCents ?? 0,
+        draft.discountCents ?? 0,
+        draft.occurredAt,
+        draft.note.trim(),
+        now,
+        now
+      );
+      await this.replaceTags(transaction, id, draft.tagIds ?? [], now);
+    });
 
     return id;
   }
@@ -186,24 +225,40 @@ export class TransactionRepository {
 
   async update(id: string, draft: TransactionDraft) {
     const now = new Date().toISOString();
-    await this.db.runAsync(
-      `UPDATE transactions
-       SET type = ?, amount_cents = ?, category_id = ?, account_id = ?,
-           transfer_account_id = ?, fee_cents = ?, discount_cents = ?,
-           occurred_at = ?, note = ?, updated_at = ?
-       WHERE id = ? AND deleted_at IS NULL`,
-      draft.type,
-      draft.amountCents,
-      draft.categoryId,
-      draft.accountId,
-      draft.transferAccountId ?? null,
-      draft.feeCents ?? 0,
-      draft.discountCents ?? 0,
-      draft.occurredAt,
-      draft.note.trim(),
-      now,
-      id
-    );
+    await this.db.withExclusiveTransactionAsync(async (transaction) => {
+      await transaction.runAsync(
+        `UPDATE transactions
+         SET type = ?, amount_cents = ?, category_id = ?, account_id = ?,
+             transfer_account_id = ?, fee_cents = ?, discount_cents = ?,
+             occurred_at = ?, note = ?, updated_at = ?
+         WHERE id = ? AND deleted_at IS NULL`,
+        draft.type,
+        draft.amountCents,
+        draft.categoryId,
+        draft.accountId,
+        draft.transferAccountId ?? null,
+        draft.feeCents ?? 0,
+        draft.discountCents ?? 0,
+        draft.occurredAt,
+        draft.note.trim(),
+        now,
+        id
+      );
+      await this.replaceTags(transaction, id, draft.tagIds ?? [], now);
+    });
+  }
+
+  private async replaceTags(db: SQLiteDatabase, transactionId: string, tagIds: string[], now: string) {
+    await db.runAsync(`DELETE FROM transaction_tags WHERE transaction_id = ?`, transactionId);
+    for (const tagId of [...new Set(tagIds)]) {
+      await db.runAsync(
+        `INSERT OR IGNORE INTO transaction_tags (transaction_id, tag_id, created_at)
+         SELECT ?, id, ? FROM tags WHERE id = ? AND archived_at IS NULL`,
+        transactionId,
+        now,
+        tagId
+      );
+    }
   }
 
   async getMonthlySummary(date = new Date()): Promise<MonthlySummary> {

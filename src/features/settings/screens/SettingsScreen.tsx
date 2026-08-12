@@ -27,6 +27,10 @@ export function SettingsScreen() {
             <ThemedText style={styles.cardTitle}>分类管理</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">自定义大分类和具体用途</ThemedText>
           </Pressable>
+          <Pressable onPress={() => router.push('/tags')} style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
+            <ThemedText style={styles.cardTitle}>标签管理</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">按人员、平台或项目整理每笔账单</ThemedText>
+          </Pressable>
           <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
             <ThemedText style={styles.cardTitle}>关于</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">记账 App MVP · Expo SDK 56</ThemedText>

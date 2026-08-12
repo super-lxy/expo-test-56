@@ -25,6 +25,7 @@ export default function TabLayout() {
             <Stack.Screen name="accounts/hidden" options={{ presentation: 'card' }} />
             <Stack.Screen name="categories" options={{ presentation: 'modal' }} />
             <Stack.Screen name="categories/create" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="tags" options={{ presentation: 'modal' }} />
           </Stack>
         </ThemeProvider>
       </SQLiteProvider>

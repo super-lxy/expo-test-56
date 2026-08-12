@@ -274,6 +274,20 @@ export function TransactionDetailModal({
               <DetailRow label="账本" value="默认账本" />
             </View>
 
+            {displayedTransaction.tags.length > 0 ? (
+              <View style={styles.card}>
+                <SectionTitle>标签</SectionTitle>
+                <View style={styles.tags}>
+                  {displayedTransaction.tags.map((tag) => (
+                    <View key={tag.id} style={styles.tagPill}>
+                      <ModalText style={styles.tagHash}>#</ModalText>
+                      <ModalText style={styles.tagText}>{tag.name}</ModalText>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ) : null}
+
             <View style={styles.card}>
               <SectionTitle>资产</SectionTitle>
               <DetailRow
@@ -402,6 +416,10 @@ const styles = StyleSheet.create({
   detailValue: { flex: 1, ...Type.subhead, ...Numeric, color: '#252B31', textAlign: 'right' },
   detailValueEmphasized: { ...Type.headline, fontWeight: FontWeight.semibold },
   note: { ...Type.body, color: '#3E4850' },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  tagPill: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: AppPalette.surfaceMuted },
+  tagHash: { ...Type.body, color: AppPalette.expense, fontWeight: FontWeight.bold },
+  tagText: { ...Type.subhead, color: AppPalette.ink, fontWeight: FontWeight.medium },
   source: { ...Type.footnote, color: '#B7BDC2', textAlign: 'center', marginTop: 2 },
   grabber: {
     position: 'absolute',
