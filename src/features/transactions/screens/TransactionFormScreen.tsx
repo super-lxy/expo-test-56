@@ -1,8 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { Alert, Keyboard, Modal, Platform, Pressable, ScrollView, StatusBar, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Keyboard, Pressable, ScrollView, StatusBar, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppBackground } from '@/components/app-background';
@@ -14,6 +13,7 @@ import { EXTERNAL_TRANSFER_ACCOUNT_ID } from '@/features/accounts/domain/systemA
 import type { Category } from '@/features/categories/domain/category.types';
 import { AccountPickerSheet, type AccountPickerKind } from '@/features/transactions/components/AccountPickerSheet';
 import { CategoryGrid } from '@/features/transactions/components/CategoryGrid';
+import { DateTimePickerSheet } from '@/features/transactions/components/DateTimePickerSheet';
 import {
   TransferFormPanel,
   type TransferAdjustmentMode,
@@ -41,29 +41,51 @@ function centsToInput(cents: number) {
   return (cents / 100).toFixed(2);
 }
 
+function firstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export function TransactionFormScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ transactionId?: string }>();
+  const params = useLocalSearchParams<{
+    transactionId?: string;
+    draftType?: string;
+    draftAmountCents?: string;
+    draftCategoryId?: string;
+    draftAccountId?: string;
+    draftOccurredAt?: string;
+    draftNote?: string;
+  }>();
   const transactionId = typeof params.transactionId === 'string' ? params.transactionId : null;
   const isEditing = transactionId !== null;
+  const initialDraftType: TransactionType = firstParam(params.draftType) === 'income' ? 'income' : 'expense';
+  const initialDraftAmountCents = Number(firstParam(params.draftAmountCents));
+  const initialDraftOccurredAt = new Date(firstParam(params.draftOccurredAt) ?? '');
   const theme = useTheme();
   const repository = useTransactionRepository();
-  const [type, setType] = useState<TransactionType>('expense');
-  const [amount, setAmount] = useState('');
+  const [type, setType] = useState<TransactionType>(initialDraftType);
+  const [amount, setAmount] = useState(
+    Number.isSafeInteger(initialDraftAmountCents) && initialDraftAmountCents > 0
+      ? centsToInput(initialDraftAmountCents)
+      : ''
+  );
   const [transferAdjustment, setTransferAdjustment] = useState('');
   const [transferAdjustmentMode, setTransferAdjustmentMode] = useState<TransferAdjustmentMode>('fee');
   const [activeAmountField, setActiveAmountField] = useState<'amount' | 'adjustment'>('amount');
-  const [note, setNote] = useState('');
+  const [note, setNote] = useState(firstParam(params.draftNote) ?? '');
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [tagPickerMounted, setTagPickerMounted] = useState(false);
   const openTagManagerAfterCloseRef = useRef(false);
-  const [categoryId, setCategoryId] = useState('food');
-  const [accountId, setAccountId] = useState('cash');
+  const [categoryId, setCategoryId] = useState(firstParam(params.draftCategoryId) ?? 'food');
+  const [accountId, setAccountId] = useState(firstParam(params.draftAccountId) ?? 'cash');
   const [transferAccountId, setTransferAccountId] = useState('');
-  const [occurredAt, setOccurredAt] = useState(new Date());
+  const [occurredAt, setOccurredAt] = useState(
+    Number.isNaN(initialDraftOccurredAt.getTime()) ? new Date() : initialDraftOccurredAt
+  );
+  const [pickerDraft, setPickerDraft] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
+  const [datePickerMounted, setDatePickerMounted] = useState(false);
   const [accountPicker, setAccountPicker] = useState<'source' | 'target' | null>(null);
   const [accountPickerContent, setAccountPickerContent] = useState<AccountPickerKind>('source');
   const [accountPickerMounted, setAccountPickerMounted] = useState(false);
@@ -192,7 +214,7 @@ export function TransactionFormScreen() {
     if (!openTagManagerAfterCloseRef.current) return;
     openTagManagerAfterCloseRef.current = false;
     requestAnimationFrame(() => router.push('/tags'));
-  }, [router]);
+  }, [router, setTagPickerMounted]);
 
   function handleTypeChange(nextType: TransactionType) {
     setType(nextType);
@@ -205,24 +227,17 @@ export function TransactionFormScreen() {
   }
 
   function openDatePicker() {
-    setPickerMode('date');
+    Keyboard.dismiss();
+    setKeypadVisible(true);
+    setPickerDraft(occurredAt);
+    setDatePickerMounted(true);
     setShowDatePicker(true);
   }
 
-  function handleDateChange(event: DateTimePickerEvent, value?: Date) {
-    if (event.type === 'dismissed') {
-      setShowDatePicker(false);
-      return;
-    }
-    if (value) setOccurredAt(value);
-    if (Platform.OS === 'android' && pickerMode === 'date' && value) {
-      setPickerMode('time');
-      return;
-    }
-    if (Platform.OS === 'android' && event.type === 'set') {
-      setShowDatePicker(false);
-    }
-  }
+  const handleDatePickerClosed = useCallback(() => {
+    setDatePickerMounted(false);
+    setKeypadVisible(true);
+  }, []);
 
   function handleKeyPress(key: string) {
     const editingAdjustment = type === 'transfer' && activeAmountField === 'adjustment';
@@ -460,15 +475,18 @@ export function TransactionFormScreen() {
             }}
           />
         </View>
-        <Modal visible={showDatePicker} transparent animationType="fade" onRequestClose={() => setShowDatePicker(false)}>
-          <View style={styles.pickerBackdrop}>
-            <View style={styles.pickerCard}>
-              <ThemedText style={styles.pickerTitle}>选择日期和时间</ThemedText>
-              <DateTimePicker value={occurredAt} mode={Platform.OS === 'ios' ? 'datetime' : pickerMode} display="spinner" onChange={handleDateChange} />
-              <Pressable onPress={() => setShowDatePicker(false)} style={styles.pickerDone}><ThemedText style={styles.pickerDoneText}>完成</ThemedText></Pressable>
-            </View>
-          </View>
-        </Modal>
+        <DateTimePickerSheet
+          visible={showDatePicker}
+          mounted={datePickerMounted}
+          value={pickerDraft}
+          onChange={setPickerDraft}
+          onClose={() => setShowDatePicker(false)}
+          onClosed={handleDatePickerClosed}
+          onConfirm={() => {
+            setOccurredAt(pickerDraft);
+            setShowDatePicker(false);
+          }}
+        />
         <AccountPickerSheet
           kind={accountPicker}
           displayKind={accountPickerContent}
@@ -546,9 +564,4 @@ const styles = StyleSheet.create({
   amountPreview: { ...Type.title, ...Numeric, fontWeight: FontWeight.bold, minWidth: 78, textAlign: 'right' },
   amountPreviewButton: { alignItems: 'flex-end', justifyContent: 'center' },
   amountFieldLabel: { ...Type.caption, color: '#8A9298', lineHeight: 13 },
-  pickerBackdrop: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: AppPalette.overlay },
-  pickerCard: { borderRadius: 20, padding: 18, backgroundColor: '#FFFFFF', alignItems: 'center', gap: 12 },
-  pickerTitle: { ...Type.headline, fontWeight: FontWeight.semibold },
-  pickerDone: { alignSelf: 'stretch', alignItems: 'center', borderRadius: 12, paddingVertical: 11, backgroundColor: AppPalette.primary },
-  pickerDoneText: { ...Type.body, color: '#FFFFFF', fontWeight: FontWeight.semibold },
 });

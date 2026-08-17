@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useHideTabBarOnScroll } from '@/hooks/use-hide-tab-bar-on-scroll';
 
 import { AppBackground } from '@/components/app-background';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { FontWeight, Glyph, Spacing, Type } from '@/constants/theme';
+import { AppPalette, FontWeight, Glyph, Spacing, Type } from '@/constants/theme';
 import { TransactionDetailModal } from '../components/TransactionDetailModal';
 import { TransactionDayHeader, TransactionItem } from '../components/TransactionItem';
 import type { Transaction } from '../domain/transaction.types';
@@ -67,10 +67,20 @@ export function TransactionListScreen() {
       <AppBackground />
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
-          <ThemedText type="title">全部账单</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            {loading ? '加载中…' : `${transactions.length} 笔记录`}
-          </ThemedText>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="返回"
+            hitSlop={8}
+            onPress={() => router.back()}
+            style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}>
+            <ThemedText style={styles.backText}>‹</ThemedText>
+          </Pressable>
+          <View style={styles.headerCopy}>
+            <ThemedText type="title">全部账单</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {loading ? '加载中…' : `${transactions.length} 笔记录`}
+            </ThemedText>
+          </View>
         </View>
         <ScrollView contentContainerStyle={transactions.length === 0 ? styles.emptyList : styles.list} showsVerticalScrollIndicator={false} onScroll={onScroll} scrollEventThrottle={16}>
           {groups.map((group, groupIndex) => (
@@ -110,7 +120,11 @@ export function TransactionListScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1 },
-  header: { paddingHorizontal: Spacing.three, paddingTop: Spacing.two, paddingBottom: Spacing.three, gap: 5 },
+  header: { minHeight: 74, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 8, paddingTop: Spacing.two, paddingBottom: Spacing.two },
+  headerCopy: { flex: 1, gap: 2 },
+  backButton: { width: 38, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 15 },
+  backButtonPressed: { backgroundColor: AppPalette.surfaceMuted },
+  backText: { fontSize: 32, lineHeight: 34, color: AppPalette.ink, fontWeight: FontWeight.regular },
   list: { paddingHorizontal: Spacing.three, paddingBottom: 120 },
   group: { marginBottom: 0 },
   emptyList: { flexGrow: 1, padding: Spacing.three },

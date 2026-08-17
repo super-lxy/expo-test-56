@@ -18,8 +18,9 @@ import { findTemplate } from '@/features/accounts/domain/account.templates';
 import { useAccounts } from '@/features/accounts/hooks/useAccounts';
 import { NetWorthChart } from '@/features/dashboard/components/NetWorthChart';
 import { buildNetWorthTrend } from '@/features/dashboard/domain/netWorth';
+import { getAvailableCreditCents, summarizeNetWorth } from '@/features/accounts/domain/account.balances';
 import { useMonthlySummary, useTransactions } from '@/features/transactions/hooks/useTransactions';
-import { formatCurrency } from '@/shared/utils/currency';
+import { formatCurrency, formatSignedCurrency } from '@/shared/utils/currency';
 
 function formatPercent(value: number, total: number) {
   if (!total) return '0%';
@@ -110,6 +111,7 @@ export function AccountRow({
   const typeLabel = findTemplate(account.type)?.label ?? '其他';
   const brand = findBrandAssets(account.type);
   const isLiability = account.kind === 'liability';
+  const availableCreditCents = getAvailableCreditCents(account);
   const statusLabel = showStatusBadge
     ? account.status === 'hidden' ? '隐藏' : account.status === 'frozen' ? '封存' : null
     : null;
@@ -170,7 +172,9 @@ export function AccountRow({
               <ThemedText style={styles.accountName} numberOfLines={1}>{account.name}</ThemedText>
               <View style={styles.accountMeta}>
                 <ThemedText type="small" themeColor="textSecondary">
-                  {typeLabel}{isLiability ? ' · 负债' : account.includeInNetWorth ? ` · ${formatPercent(account.balanceCents, total)}` : ''}
+                  {typeLabel}{isLiability
+                    ? availableCreditCents === null ? ' · 负债' : ` · 可用 ${formatCurrency(availableCreditCents)}`
+                    : account.includeInNetWorth ? ` · ${formatPercent(account.balanceCents, total)}` : ''}
                 </ThemedText>
                 {inclusionLabel || statusLabel ? (
                   <View style={[styles.statusBadge, inclusionLabel && styles.excludedBadge]}>
@@ -182,7 +186,7 @@ export function AccountRow({
               </View>
             </View>
             <ThemedText style={[styles.accountAmount, isLiability && styles.liabilityAmount]} numberOfLines={1}>
-              {formatCurrency(account.balanceCents)}
+              {formatSignedCurrency(account.balanceCents)}
             </ThemedText>
           </Pressable>
         </Animated.View>
@@ -342,11 +346,7 @@ export function AssetsScreen() {
     () => accounts.filter((account) => account.includeInNetWorth),
     [accounts]
   );
-  const totalAssets = netWorthAccounts.filter((a) => a.kind !== 'liability').reduce((sum, a) => sum + a.balanceCents, 0);
-  const totalLiabilities = netWorthAccounts
-    .filter((a) => a.kind === 'liability')
-    .reduce((sum, a) => sum + Math.abs(a.balanceCents), 0);
-  const netWorth = totalAssets - totalLiabilities;
+  const { totalAssets, totalLiabilities, netWorth } = summarizeNetWorth(accounts);
   const monthlyChange = summary.incomeCents - summary.expenseCents;
   const trend = useMemo(() => buildNetWorthTrend(netWorthAccounts, transactions), [netWorthAccounts, transactions]);
   const assetCount = accounts.filter((account) => account.kind !== 'liability').length;

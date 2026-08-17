@@ -19,7 +19,7 @@ export const DATABASE_NAME = 'ledger.db';
 const internalTransferIconAsset = require('../../../assets/images/system/internal-transfer.png');
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
-  const DATABASE_VERSION = 18;
+  const DATABASE_VERSION = 19;
   const versionRow = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
   let currentVersion = versionRow?.user_version ?? 0;
   const isNewDatabase = currentVersion === 0;
@@ -266,11 +266,21 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     await migrateInitialBalancesToTransfers(db);
   }
 
+  // v19：授信额度不是资产。所有循环信贷账户统一归为负债账户；
+  // credit_limit_cents 只保留为额度信息，不参与账户余额或净资产计算。
+  if (currentVersion < 19) {
+    await db.runAsync(
+      `UPDATE accounts
+       SET kind = 'liability'
+       WHERE type IN ('credit-card', 'huabei', 'baitiao', 'douyin-pay')`
+    );
+  }
+
   if (isNewDatabase || currentVersion < 4) {
     await addDefaultSubcategories(db);
   }
 
-  currentVersion = 18;
+  currentVersion = 19;
 
   await db.execAsync(`PRAGMA user_version = ${currentVersion}`);
 }
@@ -425,11 +435,26 @@ async function persistInternalTransferIcon(db: SQLiteDatabase) {
 }
 
 async function readBundledAssetBytes(assetModule: number) {
-  const [asset] = await Asset.loadAsync(assetModule);
-  const uri = asset.localUri ?? asset.uri;
-  return Platform.OS === 'web'
-    ? new Uint8Array(await (await fetch(uri)).arrayBuffer())
-    : new File(uri).bytes();
+  const moduleAsset = Asset.fromModule(assetModule);
+
+  if (Platform.OS === 'web') {
+    const asset = await moduleAsset.downloadAsync();
+    const uri = asset.localUri ?? asset.uri;
+    return new Uint8Array(await (await fetch(uri)).arrayBuffer());
+  }
+
+  // Standalone Android builds expose bundled images as relative resource names and
+  // mark them as downloaded. Re-create the asset from its URI so expo-asset copies
+  // the resource to cache and provides the absolute file URI required by File.
+  const asset = Platform.OS === 'android' && !moduleAsset.uri.includes(':')
+    ? await Asset.fromURI(moduleAsset.uri).downloadAsync()
+    : await moduleAsset.downloadAsync();
+
+  if (!asset.localUri) {
+    throw new Error(`Bundled asset did not resolve to a local file: ${asset.uri}`);
+  }
+
+  return new File(asset.localUri).bytes();
 }
 
 async function migrateLegacyCategoryIcons(db: SQLiteDatabase) {

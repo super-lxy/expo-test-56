@@ -10,6 +10,7 @@ import { ThemedView } from '@/components/themed-view';
 import { AppPalette, FontWeight, Type } from '@/constants/theme';
 import { parseAmountToCents } from '@/shared/utils/currency';
 import { createAccount } from '../application/createAccount';
+import { getDebtCents } from '../domain/account.balances';
 import { findBrandAssets } from '../domain/account.brands';
 import { findTemplate } from '../domain/account.templates';
 import type { AccountStatus } from '../domain/account.types';
@@ -207,7 +208,7 @@ export function AccountFormScreen() {
         return;
       }
       setName(account.name);
-      setCurrentDebt(((account.kind === 'liability' ? Math.abs(account.balanceCents) : account.balanceCents) / 100).toFixed(2));
+      setCurrentDebt(((account.kind === 'liability' ? getDebtCents(account) : account.balanceCents) / 100).toFixed(2));
       setCreditLimit(account.creditLimitCents !== null ? (account.creditLimitCents / 100).toFixed(2) : '');
       setStatementDay(account.statementDay !== null ? String(account.statementDay) : '');
       setDueDay(account.dueDay !== null ? String(account.dueDay) : '');
@@ -230,9 +231,9 @@ export function AccountFormScreen() {
     const limit = parseAmountToCents(creditLimit);
     const debt = parseAmountToCents(currentDebt);
     if (!limit && !debt) return null;
-    return limit - debt;
+    return Math.max(0, limit - debt);
   })();
-  const remainingText = remainingCents !== null ? `¥${(remainingCents / 100).toFixed(2)}` : '';
+  const remainingText = remainingCents !== null ? `可用额度 ¥${(remainingCents / 100).toFixed(2)}（不计入资产）` : '';
 
   function openPicker(target: 'statement' | 'due') {
     setPickerTarget(target);
@@ -411,14 +412,14 @@ export function AccountFormScreen() {
               <TextInput
                 value={remainingText}
                 editable={false}
-                placeholder="剩余额度"
+                placeholder="可用额度（不计入资产）"
                 placeholderTextColor="#8B8B8B"
                 style={[s.input, s.simpleInput, isEditing && s.editingInput, s.inputReadonly]}
               />
               <View style={[s.hintRow, s.simpleHintRow]}>
                 <ThemedText style={s.hintIcon}>ⓘ</ThemedText>
                 <ThemedText type="small" themeColor="textSecondary" style={{ flex: 1 }}>
-                  当前欠款和信用额度填写一项即可自动计算
+                  信用额度不计入资产，只有当前欠款计入负债
                 </ThemedText>
               </View>
             </View>

@@ -10,6 +10,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { AppPalette, FontWeight, Numeric, Type } from '@/constants/theme';
 import type { AccountBalance } from '@/features/accounts/domain/account.types';
+import { summarizeNetWorth } from '@/features/accounts/domain/account.balances';
 import { useAccounts } from '@/features/accounts/hooks/useAccounts';
 import { formatCurrency } from '@/shared/utils/currency';
 import { AccountRow, AssetDeleteFlow } from './AssetsScreen';
@@ -45,14 +46,7 @@ export function HiddenAssetsScreen() {
     deleteAccountOnly,
     deleteAccountAndTransactions,
   } = useAccounts();
-  const includedAccounts = hiddenAccounts.filter((account) => account.includeInNetWorth);
-  const totalAssets = includedAccounts
-    .filter((account) => account.kind !== 'liability')
-    .reduce((sum, account) => sum + account.balanceCents, 0);
-  const totalLiabilities = includedAccounts
-    .filter((account) => account.kind === 'liability')
-    .reduce((sum, account) => sum + Math.abs(account.balanceCents), 0);
-  const netWorth = totalAssets - totalLiabilities;
+  const { totalAssets, totalLiabilities, netWorth } = summarizeNetWorth(hiddenAccounts);
 
   const closeOpenSwipeable = useCallback(() => {
     openSwipeableRef.current?.close();

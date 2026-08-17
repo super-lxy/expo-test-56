@@ -159,12 +159,12 @@ export function TransactionDetailModal({
       ? `${displayedTransaction.parentCategoryName} - ${displayedTransaction.categoryName}`
       : displayedTransaction.categoryName;
   const amountColor = isInitialBalance
-    ? initialBalancePrefix === '-' ? AppPalette.expense : AppPalette.income
+    ? initialBalancePrefix === '-' ? AppPalette.danger : AppPalette.income
     : isTransfer
       ? AppPalette.ink
       : isIncome
         ? AppPalette.income
-        : AppPalette.expense;
+        : AppPalette.danger;
 
   return (
     <Modal

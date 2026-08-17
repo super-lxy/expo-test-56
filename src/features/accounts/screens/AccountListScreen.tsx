@@ -5,16 +5,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { AppPalette, FontWeight, Glyph, Numeric, Type } from '@/constants/theme';
-import { formatCurrency } from '@/shared/utils/currency';
+import { formatCurrency, formatSignedCurrency } from '@/shared/utils/currency';
 import { useAccounts } from '../hooks/useAccounts';
+import { summarizeNetWorth } from '../domain/account.balances';
 import { findTemplate } from '../domain/account.templates';
 
 export function AccountListScreen() {
   const router = useRouter();
   const { accounts, loading } = useAccounts();
-  const assets = accounts.filter((a) => a.kind !== 'liability' && a.includeInNetWorth).reduce((sum, a) => sum + a.balanceCents, 0);
-  const liabilities = accounts.filter((a) => a.kind === 'liability' && a.includeInNetWorth).reduce((sum, a) => sum + Math.abs(a.balanceCents), 0);
-  const total = assets - liabilities;
+  const { totalAssets: assets, totalLiabilities: liabilities, netWorth: total } = summarizeNetWorth(accounts);
 
   return (
     <ThemedView style={styles.container}>
@@ -63,7 +62,7 @@ export function AccountListScreen() {
                     </ThemedText>
                   </View>
                   <ThemedText style={[styles.accountBalance, isLiability && styles.liabilityBalance]}>
-                    {formatCurrency(account.balanceCents)}
+                    {formatSignedCurrency(account.balanceCents)}
                   </ThemedText>
                 </View>
               );

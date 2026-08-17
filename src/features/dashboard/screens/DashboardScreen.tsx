@@ -9,6 +9,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { AppPalette, FontWeight, Glyph, Numeric, Spacing, Type } from '@/constants/theme';
 import { useAccounts } from '@/features/accounts/hooks/useAccounts';
+import { summarizeNetWorth } from '@/features/accounts/domain/account.balances';
 import { TransactionDetailModal } from '@/features/transactions/components/TransactionDetailModal';
 import { TransactionDayHeader, TransactionItem } from '@/features/transactions/components/TransactionItem';
 import type { Transaction } from '@/features/transactions/domain/transaction.types';
@@ -33,10 +34,7 @@ export function DashboardScreen() {
   const { transactions, refresh: refreshTransactions } = useTransactions();
   const { accounts, refresh: refreshAccounts } = useAccounts();
   const { summary: totalSummary, refresh: refreshTotalSummary } = useTotalSummary();
-  const netWorthAccounts = accounts.filter((account) => account.includeInNetWorth);
-  const totalAssets = netWorthAccounts.filter((a) => a.kind !== 'liability').reduce((sum, a) => sum + a.balanceCents, 0);
-  const liabilities = netWorthAccounts.filter((a) => a.kind === 'liability').reduce((sum, a) => sum + Math.abs(a.balanceCents), 0);
-  const netWorth = totalAssets - liabilities;
+  const { totalAssets, totalLiabilities: liabilities, netWorth } = summarizeNetWorth(accounts);
   const monthlyChange = summary.incomeCents - summary.expenseCents;
   const onScroll = useHideTabBarOnScroll();
   const groups = transactions.slice(0, 8).reduce<{ key: string; label: string; items: typeof transactions }[]>((result, transaction) => {
@@ -141,6 +139,14 @@ export function DashboardScreen() {
               <View style={styles.transactionCard}>
                 <View style={styles.monthHeader}>
                   <ThemedText style={styles.monthTitle}>{formatMonth()}</ThemedText>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="查看全部账单"
+                    hitSlop={8}
+                    onPress={() => router.push('/bills')}
+                    style={({ pressed }) => [styles.allBillsButton, pressed && styles.allBillsButtonPressed]}>
+                    <ThemedText style={styles.allBillsText}>全部账单 ›</ThemedText>
+                  </Pressable>
                 </View>
                 <View style={styles.transactionDivider} />
                 {groups.length > 0 ? groups.map((group, groupIndex) => (
@@ -213,6 +219,9 @@ const styles = StyleSheet.create({
   transactionCard: { paddingTop: 5, paddingBottom: 2 },
   monthHeader: { paddingHorizontal: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   monthTitle: { ...Type.headline, fontWeight: FontWeight.semibold },
+  allBillsButton: { borderRadius: 12, paddingHorizontal: 8, paddingVertical: 5, backgroundColor: AppPalette.surfaceMuted },
+  allBillsButtonPressed: { opacity: 0.68 },
+  allBillsText: { ...Type.footnote, color: AppPalette.inkSoft, fontWeight: FontWeight.semibold },
   transactionDivider: { height: 1, backgroundColor: AppPalette.line, marginTop: 9, marginBottom: 4 },
   dayHeader: { paddingTop: 11, paddingBottom: 3 },
   dayGroup: { marginBottom: 0 },

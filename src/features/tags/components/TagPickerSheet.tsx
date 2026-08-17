@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { AppPalette, FontWeight, Type } from '@/constants/theme';
+import { FORM_SHEET_HEIGHT } from '@/shared/constants/layout';
 import { useTagGroups } from '../hooks/useTags';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -120,7 +121,7 @@ export function TagPickerSheet({ visible, mounted, selectedTagIds, onChange, onC
               style={styles.searchInput}
             />
           </View>
-          <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.scroll} contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             {visibleGroups.map((group, index) => {
               const groupTagIds = group.tags.map((tag) => tag.id);
               const allSelected = groupTagIds.length > 0 && groupTagIds.every((id) => selected.has(id));
@@ -163,8 +164,7 @@ const styles = StyleSheet.create({
   modalRoot: { flex: 1, justifyContent: 'flex-end', paddingHorizontal: 12 },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: AppPalette.overlay },
   sheet: {
-    maxHeight: '78%',
-    minHeight: '44%',
+    height: FORM_SHEET_HEIGHT,
     borderRadius: 20,
     overflow: 'hidden',
     paddingTop: 10,
@@ -192,6 +192,7 @@ const styles = StyleSheet.create({
   searchBox: { height: 40, flexDirection: 'row', alignItems: 'center', borderRadius: 13, marginTop: 10, paddingHorizontal: 11, gap: 7, backgroundColor: AppPalette.surfaceMuted, borderWidth: 1, borderColor: AppPalette.line },
   searchIcon: { fontSize: 19, lineHeight: 23, color: AppPalette.ink, transform: [{ rotate: '-20deg' }] },
   searchInput: { flex: 1, ...Type.body, color: AppPalette.ink, paddingVertical: 0 },
+  scroll: { flex: 1 },
   list: { paddingTop: 9, paddingBottom: 14, gap: 8 },
   scopeLabel: { ...Type.footnote, textAlign: 'center', color: AppPalette.textFaint, marginVertical: 5 },
   groupCard: { borderRadius: 14, paddingHorizontal: 10, paddingVertical: 8, gap: 8, backgroundColor: AppPalette.surface, borderWidth: 1, borderColor: '#E7EDF0' },

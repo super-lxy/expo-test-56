@@ -46,12 +46,12 @@ export function TransactionItem({
         ? '+'
         : '-';
   const color = isInitialBalance
-    ? initialBalancePrefix === '-' ? AppPalette.expense : AppPalette.income
+    ? initialBalancePrefix === '-' ? AppPalette.danger : AppPalette.income
     : isTransfer
       ? AppPalette.ink
       : isIncome
         ? AppPalette.income
-        : AppPalette.expense;
+        : AppPalette.danger;
   const accentColor = isInternalTransfer
     ? '#5B7184'
     : transaction.categoryColor;

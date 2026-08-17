@@ -1,6 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import type { Account, AccountBalance, AccountDraft, AccountStatus } from '../domain/account.types';
+import { isCreditAccountType } from '../domain/account.balances';
 import { EXTERNAL_TRANSFER_ACCOUNT_ID } from '../domain/systemAccounts';
 
 type AccountRow = {
@@ -99,7 +100,7 @@ export class AccountRepository {
       id,
       draft.name.trim(),
       draft.type,
-      draft.kind,
+      isCreditAccountType(draft.type) ? 'liability' : draft.kind,
       draft.icon,
       draft.color,
       draft.initialBalanceCents,

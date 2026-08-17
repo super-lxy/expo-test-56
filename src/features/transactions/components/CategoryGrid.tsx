@@ -7,10 +7,8 @@ import { AppPalette, FontWeight, Glyph, Type } from '@/constants/theme';
 import { CategoryIcon } from '@/features/categories/components/CategoryIcon';
 import type { Category } from '@/features/categories/domain/category.types';
 import { ElasticBoundaryScrollView } from '@/features/transactions/components/ElasticBoundaryScrollView';
+import { FORM_SHEET_HEIGHT } from '@/shared/constants/layout';
 
-/** 弹窗一屏最多显示的子分类行数，超出滚动 */
-const MAX_VISIBLE_ROWS = 6;
-const CHILD_ROW_HEIGHT = 56;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const CATEGORY_ICON_BACKGROUND = 'rgba(255,255,255,0.68)';
 
@@ -217,13 +215,9 @@ export function CategoryGrid({
                   <View style={styles.sheetCloseBtn} />
                 )}
               </View>
-              {/* 超过 MAX_VISIBLE_ROWS 行时限高滚动。
-                  bounces + 顶底的圆弧留白：拖到尽头会露出弧形，提示已到边界。 */}
+              {/* 顶底的圆弧留白会在拖到尽头时露出，提示已到列表边界。 */}
               <ElasticBoundaryScrollView
-                style={[
-                  styles.childScroll,
-                  children.length > MAX_VISIBLE_ROWS && { height: MAX_VISIBLE_ROWS * CHILD_ROW_HEIGHT },
-                ]}
+                style={styles.childScroll}
                 contentContainerStyle={styles.childList}
                 showsVerticalScrollIndicator={false}
                 bounces
@@ -280,7 +274,7 @@ const styles = StyleSheet.create({
   modalRoot: { flex: 1, justifyContent: 'flex-end', paddingHorizontal: 12 },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: AppPalette.overlay },
   sheet: {
-    maxHeight: '78%',
+    height: FORM_SHEET_HEIGHT,
     borderRadius: 20,
     backgroundColor: '#FFFFFF',
     overflow: 'hidden',
@@ -297,8 +291,7 @@ const styles = StyleSheet.create({
   sheetTitle: { flex: 1, ...Type.headline, fontWeight: FontWeight.semibold, textAlign: 'center' },
   sheetAddBtn: { minWidth: 30, alignItems: 'flex-end', justifyContent: 'center', paddingHorizontal: 2 },
   sheetAddText: { ...Type.body, color: AppPalette.expense, fontWeight: FontWeight.semibold },
-  // 不设 flexGrow: 0 —— 行数超限时靠内联 height 限高，未超限时按内容自然高度
-  childScroll: { flexShrink: 1 },
+  childScroll: { flex: 1 },
   childList: { paddingHorizontal: 18, paddingTop: 4 },
   childRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 13, borderBottomWidth: 1, borderBottomColor: '#F0F1F1' },
   // 末行不画分隔线，避免与卡片底部留白之间出现一道悬空的横线

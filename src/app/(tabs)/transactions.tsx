@@ -1,3 +1,3 @@
-import { TransactionListScreen } from '@/features/transactions/screens/TransactionListScreen';
+import { AiLedgerScreen } from '@/features/ai/screens/AiLedgerScreen';
 
-export default TransactionListScreen;
+export default AiLedgerScreen;

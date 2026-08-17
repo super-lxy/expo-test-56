@@ -18,6 +18,7 @@ export default function TabLayout() {
           <AnimatedSplashOverlay />
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="bills" options={{ presentation: 'card' }} />
             <Stack.Screen name="transaction/create" options={{ presentation: 'modal' }} />
             <Stack.Screen name="accounts" options={{ presentation: 'modal' }} />
             <Stack.Screen name="accounts/create" options={{ presentation: 'modal' }} />

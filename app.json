@@ -1,14 +1,15 @@
 {
   "expo": {
-    "name": "expo-test-56",
+    "name": "记账本（内测）",
     "slug": "expo-test-56",
-    "version": "1.0.0",
+    "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "expotest56",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.muzil7263.ledger"
     },
     "android": {
       "package": "com.muzil7263.ledger",
@@ -47,8 +48,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "允许访问相册以选择分类图标。",
-          "cameraPermission": false,
+          "photosPermission": "允许访问相册，以选择账单图片或分类图标。",
+          "cameraPermission": "允许使用相机拍摄小票、订单和支付记录。",
           "microphonePermission": false,
           "colors": {
             "cropToolbarColor": "#F7F7F8",
@@ -60,11 +61,24 @@
         }
       ],
       "@react-native-community/datetimepicker",
-      "expo-asset"
+      "expo-asset",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {
+        "headers": {
+          "Cross-Origin-Embedder-Policy": "credentialless",
+          "Cross-Origin-Opener-Policy": "same-origin"
+        }
+      },
+      "eas": {
+        "projectId": "bb8b34a3-57d9-48a4-9d58-736718bf1bfa"
+      }
+    },
+    "owner": "superlxy"
   }
 }

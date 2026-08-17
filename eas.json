@@ -8,7 +8,7 @@
       "developmentClient": true,
       "distribution": "internal"
     },
-    "preview": {
+    "internal": {
       "distribution": "internal",
       "autoIncrement": true,
       "android": {

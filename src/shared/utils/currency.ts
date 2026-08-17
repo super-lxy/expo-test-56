@@ -2,6 +2,11 @@ export function formatCurrency(cents: number) {
   return `¥${(cents / 100).toFixed(2)}`;
 }
 
+export function formatSignedCurrency(cents: number) {
+  const amount = formatCurrency(Math.abs(cents));
+  return cents < 0 ? `-${amount}` : amount;
+}
+
 /** 图表 Y 轴用，大数字显示为「万」单位 */
 export function formatCurrencyCompact(cents: number) {
   const yuan = cents / 100;

@@ -14,19 +14,12 @@ import {
   EXTERNAL_TRANSFER_ACCOUNT_NAME,
 } from '@/features/accounts/domain/systemAccounts';
 import { ElasticBoundaryScrollView } from '@/features/transactions/components/ElasticBoundaryScrollView';
-import { formatCurrency } from '@/shared/utils/currency';
+import { FORM_SHEET_HEIGHT } from '@/shared/constants/layout';
+import { formatSignedCurrency } from '@/shared/utils/currency';
 
 export type AccountPickerKind = 'source' | 'target';
-
-const MAX_VISIBLE_ROWS = 6;
-const ACCOUNT_ROW_HEIGHT = 66;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const externalTransferCardAsset = require('../../../../assets/images/system/external-transfer-card.png');
-
-function formatAccountBalance(cents: number) {
-  const amount = formatCurrency(Math.abs(cents));
-  return cents < 0 ? `-${amount}` : amount;
-}
 
 export function AccountPickerSheet({
   kind,
@@ -70,8 +63,6 @@ export function AccountPickerSheet({
     : accounts;
   const showExternalAccount = transferMode && oppositeAccountId !== EXTERNAL_TRANSFER_ACCOUNT_ID;
   const externalAccountSelected = selectedAccountId === EXTERNAL_TRANSFER_ACCOUNT_ID;
-  const visibleRowCount = availableAccounts.length + (showExternalAccount ? 1 : 0);
-
   useEffect(() => {
     if (kind) {
       if (!sheetHeight) return;
@@ -131,10 +122,7 @@ export function AccountPickerSheet({
             <View style={styles.sheetCloseBtn} />
           </View>
           <ElasticBoundaryScrollView
-            style={[
-              styles.accountScroll,
-              visibleRowCount > MAX_VISIBLE_ROWS && { height: MAX_VISIBLE_ROWS * ACCOUNT_ROW_HEIGHT },
-            ]}
+            style={styles.accountScroll}
             contentContainerStyle={styles.accountList}
             showsVerticalScrollIndicator={false}
             bounces
@@ -207,7 +195,7 @@ export function AccountPickerSheet({
                         account.balanceCents < 0 ? styles.negativeBalance : styles.positiveBalance,
                       ]}
                       numberOfLines={1}>
-                      {formatAccountBalance(account.balanceCents)}
+                      {formatSignedCurrency(account.balanceCents)}
                     </ThemedText>
                     {selected ? <ThemedText style={styles.checkmark}>✓</ThemedText> : null}
                   </View>
@@ -225,7 +213,7 @@ const styles = StyleSheet.create({
   modalRoot: { flex: 1, justifyContent: 'flex-end', paddingHorizontal: 12 },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: AppPalette.overlay },
   sheet: {
-    maxHeight: '78%',
+    height: FORM_SHEET_HEIGHT,
     borderRadius: 20,
     backgroundColor: AppPalette.surface,
     overflow: 'hidden',
@@ -240,7 +228,7 @@ const styles = StyleSheet.create({
   sheetCloseBtn: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
   sheetCloseText: { fontSize: 24, lineHeight: 26, fontWeight: FontWeight.regular, color: '#8C96A0' },
   sheetTitle: { flex: 1, ...Type.headline, fontWeight: FontWeight.semibold, textAlign: 'center' },
-  accountScroll: { flexShrink: 1 },
+  accountScroll: { flex: 1 },
   accountList: { paddingHorizontal: 18, paddingTop: 4 },
   accountRow: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: '#F0F1F1' },
   accountRowPressed: { opacity: 0.68 },

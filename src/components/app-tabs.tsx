@@ -27,8 +27,8 @@ export default function AppTabs() {
       <Tabs.Screen
         name="transactions"
         options={{
-          title: '账单',
-          tabBarIcon: ({ color, size }) => <TabIcon name={{ ios: 'list.bullet', android: 'list', web: 'list' }} color={color} size={size} />,
+          title: 'AI 记账',
+          tabBarIcon: ({ color, size }) => <TabIcon name={{ ios: 'sparkles', android: 'auto_awesome', web: 'auto_awesome' }} color={color} size={size} />,
         }}
       />
       <Tabs.Screen
