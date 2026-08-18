@@ -8,6 +8,7 @@ import { AppBackground } from '@/components/app-background';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { AppPalette, FontWeight, Glyph, Numeric, Type } from '@/constants/theme';
+import { recordAiDraftSave } from '@/features/ai/application/aiDraftSaveSignal';
 import { findBrandAssets } from '@/features/accounts/domain/account.brands';
 import { EXTERNAL_TRANSFER_ACCOUNT_ID } from '@/features/accounts/domain/systemAccounts';
 import type { Category } from '@/features/categories/domain/category.types';
@@ -55,8 +56,10 @@ export function TransactionFormScreen() {
     draftAccountId?: string;
     draftOccurredAt?: string;
     draftNote?: string;
+    aiDraftMessageId?: string;
   }>();
   const transactionId = typeof params.transactionId === 'string' ? params.transactionId : null;
+  const aiDraftMessageId = firstParam(params.aiDraftMessageId) ?? null;
   const isEditing = transactionId !== null;
   const initialDraftType: TransactionType = firstParam(params.draftType) === 'income' ? 'income' : 'expense';
   const initialDraftAmountCents = Number(firstParam(params.draftAmountCents));
@@ -292,13 +295,17 @@ export function TransactionFormScreen() {
         note,
         tagIds,
       };
+      let createdTransactionId: string | null = null;
       if (transactionId) {
         await updateTransaction(repository, transactionId, draft);
       } else {
-        await createTransaction(repository, draft);
+        createdTransactionId = await createTransaction(repository, draft);
+      }
+      if (aiDraftMessageId && createdTransactionId) {
+        recordAiDraftSave({ messageId: aiDraftMessageId, transactionId: createdTransactionId });
       }
 
-      if (continueEntry && !transactionId) {
+      if (continueEntry && !transactionId && !aiDraftMessageId) {
         setAmount('');
         setTransferAdjustment('');
         setActiveAmountField('amount');
@@ -461,12 +468,12 @@ export function TransactionFormScreen() {
           pointerEvents={keypadVisible ? 'auto' : 'none'}>
           <TransactionKeypad
             disabled={isSubmitting}
-            secondaryActionLabel={isEditing ? '取消' : '再记'}
+            secondaryActionLabel={isEditing || aiDraftMessageId ? '取消' : '再记'}
             onKeyPress={handleKeyPress}
             onBackspace={handleBackspace}
             onSave={() => void handleSubmit()}
             onSaveAndContinue={() => {
-              if (isEditing) {
+              if (isEditing || aiDraftMessageId) {
                 Keyboard.dismiss();
                 router.back();
               } else {

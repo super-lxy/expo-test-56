@@ -20,7 +20,9 @@ export type AiLedgerContext = {
 
 const recognitionInstructions = `你是一个严谨的中文记账助手。请从用户提供的账单、小票或支付截图中提取一笔最主要的账单。
 只返回结构化字段，不要猜测看不清的信息：金额必须换算为人民币分，type 只能是 expense 或 income。
-categoryName 和 paymentMethod 返回图片中看到的自然语言名称，不要返回任何数据库 ID。
+merchant 和 paymentMethod 返回图片中看到的自然语言名称，不要返回任何数据库 ID。
+parentCategoryName 和 categoryName 不是图片文字的抄录，而是对消费内容的分类：结合商户、商品/服务明细和备注，从本地账本上下文中选择语义最准确、最具体的一级分类和二级分类。
+note 只记录其他字段没有表达、且有助于用户回忆的信息，例如商品、服务或订单备注。金额只能放在 amountCents；note 不得重复金额、日期、收支类型、分类、账户或“消费了多少钱”等内容，没有独立备注时返回 null。
 occurredAt 只在能确定日期或日期时间时返回 ISO 8601 字符串，否则返回 null；没有明确年份时不要擅自补年份。
 confidence 是整体识别置信度（0 到 1），uncertainFields 列出需要用户确认的字段名。summary 用简短中文描述识别结果。
 如果图片不是账单或无法识别金额，请将 amountCents 设为 1，并在 uncertainFields 中加入 amount，summary 中明确说明无法确认金额。
@@ -32,15 +34,16 @@ const recognizedBillJsonSchema = {
     type: { type: 'string', enum: ['expense', 'income'] },
     amountCents: { type: 'integer', minimum: 1 },
     merchant: { type: ['string', 'null'] },
-    categoryName: { type: ['string', 'null'] },
+    parentCategoryName: { type: ['string', 'null'], description: '本地账本中的一级分类名称，不包含二级分类或分隔符' },
+    categoryName: { type: ['string', 'null'], description: '本地账本中的二级分类名称，不包含一级分类或分隔符' },
     paymentMethod: { type: ['string', 'null'] },
     occurredAt: { type: ['string', 'null'] },
-    note: { type: ['string', 'null'] },
+    note: { type: ['string', 'null'], description: '商品、服务或订单备注，不得包含金额或重复其他结构化字段' },
     confidence: { type: 'number', minimum: 0, maximum: 1 },
     uncertainFields: { type: 'array', items: { type: 'string' } },
     summary: { type: 'string' },
   },
-  required: ['type', 'amountCents', 'merchant', 'categoryName', 'paymentMethod', 'occurredAt', 'note', 'confidence', 'uncertainFields', 'summary'],
+  required: ['type', 'amountCents', 'merchant', 'parentCategoryName', 'categoryName', 'paymentMethod', 'occurredAt', 'note', 'confidence', 'uncertainFields', 'summary'],
   additionalProperties: false,
 };
 
@@ -86,17 +89,19 @@ function extractResponseText(payload: unknown) {
 function contextInstructions(context?: AiLedgerContext) {
   if (!context) return '';
   const expenseCategories = context.categories
-    .filter((category) => category.type === 'expense')
-    .map((category) => category.parentName ? `${category.parentName} > ${category.name}` : category.name);
+    .filter((category) => category.type === 'expense' && category.parentName)
+    .map((category) => `${category.parentName}--${category.name}`);
   const incomeCategories = context.categories
-    .filter((category) => category.type === 'income')
-    .map((category) => category.parentName ? `${category.parentName} > ${category.name}` : category.name);
+    .filter((category) => category.type === 'income' && category.parentName)
+    .map((category) => `${category.parentName}--${category.name}`);
   const accounts = context.accounts.join('、');
   return `\n\n本地账本上下文（这是用户当前可用的选项）：
-支出分类：${expenseCategories.join('、') || '暂无'}
-收入分类：${incomeCategories.join('、') || '暂无'}
+支出末级分类：\n- ${expenseCategories.join('\n- ') || '暂无'}
+收入末级分类：\n- ${incomeCategories.join('\n- ') || '暂无'}
 账户：${accounts || '暂无'}
-请优先从上述分类和账户中选择，并将 categoryName、paymentMethod 原样返回对应名称；如果没有合适选项则返回 null，不要创造新的本地名称。`;
+必须从与 type 对应的“末级分类”列表中选择一项，将“--”左侧原样放入 parentCategoryName、右侧原样放入 categoryName；两个字段都不能包含“--”或把父子名称拼在一起，也不能创造新分类。
+应根据账单的实际消费用途做语义分类。例如咖啡店消费应优先选择“餐饮--咖啡茶饮”，不要停留在“餐饮--餐饮”这类同名兜底分类；只有图片没有足够线索判断具体用途时才能选择兜底分类，并在 uncertainFields 中加入 category。
+paymentMethod 应原样返回账户列表中的名称；没有合适选项则返回 null。`;
 }
 
 function userInstruction(input: RecognizeBillInput) {

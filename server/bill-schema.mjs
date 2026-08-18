@@ -4,6 +4,7 @@ export const billSchema = z.object({
   type: z.enum(['expense', 'income']),
   amountCents: z.number().int().positive().max(100000000000),
   merchant: z.string().max(120).nullable(),
+  parentCategoryName: z.string().max(80).nullable(),
   categoryName: z.string().max(80).nullable(),
   paymentMethod: z.string().max(80).nullable(),
   occurredAt: z.string().max(80).nullable(),

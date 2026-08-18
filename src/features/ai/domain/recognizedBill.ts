@@ -4,6 +4,7 @@ export type RecognizedBill = {
   type: RecognizedBillType;
   amountCents: number;
   merchant: string | null;
+  parentCategoryName: string | null;
   categoryName: string | null;
   paymentMethod: string | null;
   occurredAt: string | null;
@@ -39,6 +40,7 @@ export function parseRecognizedBill(value: unknown): RecognizedBill {
     type: result.type,
     amountCents: result.amountCents,
     merchant: nullableString(result.merchant, 'merchant'),
+    parentCategoryName: nullableString(result.parentCategoryName, 'parentCategoryName'),
     categoryName: nullableString(result.categoryName, 'categoryName'),
     paymentMethod: nullableString(result.paymentMethod, 'paymentMethod'),
     occurredAt: nullableString(result.occurredAt, 'occurredAt'),
