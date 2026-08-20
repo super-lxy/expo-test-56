@@ -19,7 +19,7 @@ export const DATABASE_NAME = 'ledger.db';
 const internalTransferIconAsset = require('../../../assets/images/system/internal-transfer.png');
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
-  const DATABASE_VERSION = 19;
+  const DATABASE_VERSION = 20;
   const versionRow = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
   let currentVersion = versionRow?.user_version ?? 0;
   const isNewDatabase = currentVersion === 0;
@@ -276,11 +276,25 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     );
   }
 
+  // v20：添加性能优化索引，提升查询效率
+  if (currentVersion < 20) {
+    await db.execAsync(`
+      CREATE INDEX IF NOT EXISTS idx_transactions_account_id
+        ON transactions(account_id) WHERE deleted_at IS NULL;
+      CREATE INDEX IF NOT EXISTS idx_transactions_category_id
+        ON transactions(category_id) WHERE deleted_at IS NULL;
+      CREATE INDEX IF NOT EXISTS idx_transactions_transfer_account_id
+        ON transactions(transfer_account_id) WHERE deleted_at IS NULL;
+      CREATE INDEX IF NOT EXISTS idx_accounts_status
+        ON accounts(status) WHERE deleted_at IS NULL;
+    `);
+  }
+
   if (isNewDatabase || currentVersion < 4) {
     await addDefaultSubcategories(db);
   }
 
-  currentVersion = 19;
+  currentVersion = 20;
 
   await db.execAsync(`PRAGMA user_version = ${currentVersion}`);
 }

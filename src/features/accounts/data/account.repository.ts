@@ -3,6 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import type { Account, AccountBalance, AccountDraft, AccountStatus } from '../domain/account.types';
 import { isCreditAccountType } from '../domain/account.balances';
 import { EXTERNAL_TRANSFER_ACCOUNT_ID } from '../domain/systemAccounts';
+import { generateSecureId } from '@/shared/utils/idGenerator';
 
 type AccountRow = {
   id: string;
@@ -55,43 +56,61 @@ export class AccountRepository {
   }
 
   async listWithBalances(): Promise<AccountBalance[]> {
-    const accounts = await this.list();
-    return Promise.all(
-      accounts.map(async (account) => {
-        const row = await this.db.getFirstAsync<{
-          income_cents: number;
-          expense_cents: number;
-          transferred_in_cents: number;
-          transferred_out_cents: number;
-        }>(
-          `SELECT
-             COALESCE(SUM(CASE WHEN type = 'income' AND account_id = ? THEN amount_cents ELSE 0 END), 0) AS income_cents,
-             COALESCE(SUM(CASE WHEN type = 'expense' AND account_id = ? THEN amount_cents ELSE 0 END), 0) AS expense_cents,
-             COALESCE(SUM(CASE WHEN type = 'transfer' AND transfer_account_id = ? THEN amount_cents ELSE 0 END), 0) AS transferred_in_cents,
-             COALESCE(SUM(CASE WHEN type = 'transfer' AND account_id = ?
-               THEN amount_cents + COALESCE(fee_cents, 0) - COALESCE(discount_cents, 0)
-               ELSE 0 END), 0) AS transferred_out_cents
-           FROM transactions
-           WHERE deleted_at IS NULL`,
-          account.id, account.id, account.id, account.id
-        );
-
-        const incomeCents = row?.income_cents ?? 0;
-        const expenseCents = row?.expense_cents ?? 0;
-        const transferredInCents = row?.transferred_in_cents ?? 0;
-        const transferredOutCents = row?.transferred_out_cents ?? 0;
-        const balanceCents = account.kind === 'liability'
-          ? -account.initialBalanceCents + incomeCents - expenseCents + transferredInCents - transferredOutCents
-          : account.initialBalanceCents + incomeCents - expenseCents + transferredInCents - transferredOutCents;
-
-        return { ...account, balanceCents };
-      })
+    // Optimized single query with JOIN to eliminate N+1 problem
+    const rows = await this.db.getAllAsync<AccountRow & {
+      income_cents: number;
+      expense_cents: number;
+      transferred_in_cents: number;
+      transferred_out_cents: number;
+    }>(
+      `SELECT
+         a.id,
+         a.name,
+         a.type,
+         a.kind,
+         a.icon,
+         a.color,
+         a.initial_balance_cents,
+         a.currency,
+         a.credit_limit_cents,
+         a.statement_day,
+         a.due_day,
+         a.status,
+         a.include_in_net_worth,
+         a.deleted_at,
+         COALESCE(SUM(CASE WHEN t.type = 'income' AND t.account_id = a.id THEN t.amount_cents ELSE 0 END), 0) AS income_cents,
+         COALESCE(SUM(CASE WHEN t.type = 'expense' AND t.account_id = a.id THEN t.amount_cents ELSE 0 END), 0) AS expense_cents,
+         COALESCE(SUM(CASE WHEN t.type = 'transfer' AND t.transfer_account_id = a.id THEN t.amount_cents ELSE 0 END), 0) AS transferred_in_cents,
+         COALESCE(SUM(CASE WHEN t.type = 'transfer' AND t.account_id = a.id
+           THEN t.amount_cents + COALESCE(t.fee_cents, 0) - COALESCE(t.discount_cents, 0)
+           ELSE 0 END), 0) AS transferred_out_cents
+       FROM accounts a
+       LEFT JOIN transactions t ON (t.account_id = a.id OR t.transfer_account_id = a.id)
+         AND t.deleted_at IS NULL
+       WHERE a.deleted_at IS NULL AND a.id != ?
+       GROUP BY a.id
+       ORDER BY a.created_at`,
+      EXTERNAL_TRANSFER_ACCOUNT_ID
     );
+
+    return rows.map(row => {
+      const account = mapAccount(row);
+      const incomeCents = row.income_cents ?? 0;
+      const expenseCents = row.expense_cents ?? 0;
+      const transferredInCents = row.transferred_in_cents ?? 0;
+      const transferredOutCents = row.transferred_out_cents ?? 0;
+
+      const balanceCents = account.kind === 'liability'
+        ? -account.initialBalanceCents + incomeCents - expenseCents + transferredInCents - transferredOutCents
+        : account.initialBalanceCents + incomeCents - expenseCents + transferredInCents - transferredOutCents;
+
+      return { ...account, balanceCents };
+    });
   }
 
   async create(draft: AccountDraft) {
     const now = new Date().toISOString();
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const id = generateSecureId();
     await this.db.runAsync(
       `INSERT INTO accounts
          (id, name, type, kind, icon, color, initial_balance_cents, currency,

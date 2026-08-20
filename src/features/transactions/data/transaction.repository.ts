@@ -7,6 +7,7 @@ import type {
 } from '../domain/transaction.types';
 import type { CategoryIconType } from '@/features/categories/domain/category.types';
 import { categoryIconDataUri } from '@/features/categories/data/categoryIconStorage';
+import { generateSecureId } from '@/shared/utils/idGenerator';
 
 type TransactionRow = {
   id: string;
@@ -123,7 +124,10 @@ export class TransactionRepository {
     })));
   }
 
-  async list(): Promise<Transaction[]> {
+  async list(options: { limit?: number; offset?: number } = {}): Promise<Transaction[]> {
+    const limit = options.limit ?? 100; // 默认每页100条
+    const offset = options.offset ?? 0;
+
     const [rows, categoryImages, tagRows] = await Promise.all([
       this.db.getAllAsync<TransactionRow>(`
         SELECT
@@ -151,7 +155,8 @@ export class TransactionRepository {
         LEFT JOIN accounts target_a ON target_a.id = t.transfer_account_id
         WHERE t.deleted_at IS NULL
         ORDER BY t.occurred_at DESC, t.created_at DESC
-      `),
+        LIMIT ? OFFSET ?
+      `, limit, offset),
       this.db.getAllAsync<CategoryImageRow>(`
         SELECT id, icon_blob, icon_mime
         FROM categories
@@ -184,7 +189,7 @@ export class TransactionRepository {
 
   async create(draft: TransactionDraft) {
     const now = new Date().toISOString();
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const id = generateSecureId();
 
     await this.db.withExclusiveTransactionAsync(async (transaction) => {
       await transaction.runAsync(
@@ -249,14 +254,34 @@ export class TransactionRepository {
   }
 
   private async replaceTags(db: SQLiteDatabase, transactionId: string, tagIds: string[], now: string) {
+    // Remove duplicates
+    const uniqueTagIds = [...new Set(tagIds)];
+
+    // Validate all tags exist and are not archived before making any changes
+    if (uniqueTagIds.length > 0) {
+      const placeholders = uniqueTagIds.map(() => '?').join(', ');
+      const validTags = await db.getAllAsync<{ id: string }>(
+        `SELECT id FROM tags WHERE id IN (${placeholders}) AND archived_at IS NULL`,
+        ...uniqueTagIds
+      );
+
+      if (validTags.length !== uniqueTagIds.length) {
+        const validIds = new Set(validTags.map(t => t.id));
+        const invalidIds = uniqueTagIds.filter(id => !validIds.has(id));
+        throw new Error(`标签不存在或已归档: ${invalidIds.join(', ')}`);
+      }
+    }
+
+    // Delete existing tags
     await db.runAsync(`DELETE FROM transaction_tags WHERE transaction_id = ?`, transactionId);
-    for (const tagId of [...new Set(tagIds)]) {
+
+    // Insert new tags in a batch
+    if (uniqueTagIds.length > 0) {
+      const values = uniqueTagIds.map(() => '(?, ?, ?)').join(', ');
+      const params = uniqueTagIds.flatMap(tagId => [transactionId, tagId, now]);
       await db.runAsync(
-        `INSERT OR IGNORE INTO transaction_tags (transaction_id, tag_id, created_at)
-         SELECT ?, id, ? FROM tags WHERE id = ? AND archived_at IS NULL`,
-        transactionId,
-        now,
-        tagId
+        `INSERT INTO transaction_tags (transaction_id, tag_id, created_at) VALUES ${values}`,
+        ...params
       );
     }
   }

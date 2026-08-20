@@ -53,7 +53,7 @@ export function TransactionItem({
         ? AppPalette.income
         : AppPalette.danger;
   const accentColor = isInternalTransfer
-    ? '#5B7184'
+    ? AppPalette.transfer
     : transaction.categoryColor;
   const cardBackground = AppPalette.surface;
   const cardBorderColor = AppPalette.line;

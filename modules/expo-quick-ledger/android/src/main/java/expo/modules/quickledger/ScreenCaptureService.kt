@@ -52,7 +52,7 @@ class ScreenCaptureService : Service() {
       @Suppress("DEPRECATION")
       intent?.getParcelableExtra(CaptureContract.EXTRA_RESULT_DATA)
     }
-    if (resultCode == ActivityResultCodeMissing || resultData == null) {
+    if (resultCode == ActivityResultCodeMissing || resultCode != android.app.Activity.RESULT_OK || resultData == null) {
       finishWithError("没有获得系统截屏授权")
       return START_NOT_STICKY
     }
@@ -68,7 +68,7 @@ class ScreenCaptureService : Service() {
       val manager = getSystemService(MediaProjectionManager::class.java)
       val projection = manager.getMediaProjection(resultCode, resultData)
       mediaProjection = projection
-      projection.registerCallback(projectionCallback, mainHandler)
+      projection!!.registerCallback(projectionCallback, mainHandler)
 
       val metrics = screenMetrics()
       val reader = ImageReader.newInstance(metrics.widthPixels, metrics.heightPixels, PixelFormat.RGBA_8888, 2)
@@ -90,7 +90,7 @@ class ScreenCaptureService : Service() {
         }
       }, workerHandler)
 
-      virtualDisplay = projection.createVirtualDisplay(
+      virtualDisplay = projection!!.createVirtualDisplay(
         "QuickLedgerCapture",
         metrics.widthPixels,
         metrics.heightPixels,

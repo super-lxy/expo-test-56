@@ -6,6 +6,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -20,6 +21,7 @@ import { AppBackground } from '@/components/app-background';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { AppPalette, FontWeight, Glyph, Numeric, Type } from '@/constants/theme';
+import { useTabScroll } from '@/context/tab-scroll';
 import {
   consumeAiDraftSaves,
   subscribeToAiDraftSaves,
@@ -314,6 +316,7 @@ export function AiLedgerScreen() {
     quickCaptureToken?: string | string[];
   }>();
   const insets = useSafeAreaInsets();
+  const tabScroll = useTabScroll();
   const scrollRef = useRef<ScrollView | null>(null);
   const requestIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -325,13 +328,30 @@ export function AiLedgerScreen() {
   const [latestAsset, setLatestAsset] = useState<UploadedAsset | null>(null);
   const [activeBill, setActiveBill] = useState<RecognizedBill | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const tabBarClearance = Math.max(insets.bottom, 10) + 68;
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const repository = useTransactionRepository();
   const expenseFormData = useTransactionFormData('expense');
   const incomeFormData = useTransactionFormData('income');
   const localContextReady = expenseFormData.accounts.length > 0
     && expenseFormData.categories.length > 0
     && incomeFormData.categories.length > 0;
+
+  // 键盘监听：显示时隐藏 Tab 栏
+  useEffect(() => {
+    const showListener = Keyboard.addListener('keyboardWillShow', () => {
+      setKeyboardVisible(true);
+      tabScroll?.hideTabBar();
+    });
+    const hideListener = Keyboard.addListener('keyboardWillHide', () => {
+      setKeyboardVisible(false);
+      tabScroll?.showTabBar();
+    });
+
+    return () => {
+      showListener.remove();
+      hideListener.remove();
+    };
+  }, [tabScroll]);
 
   const acknowledgeSavedDrafts = useCallback((receipts: AiDraftSaveReceipt[]) => {
     if (receipts.length === 0) return;
@@ -538,7 +558,10 @@ export function AiLedgerScreen() {
     <ThemedView style={styles.container}>
       <AppBackground />
       <SafeAreaView edges={['top']} style={styles.safeArea}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.keyboardView, { paddingBottom: tabBarClearance }]}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={[styles.keyboardView, { paddingBottom: keyboardVisible ? 0 : Math.max(insets.bottom, 10) }]}
+        >
           <View style={styles.header}>
             <View style={styles.assistantAvatar}><SymbolView name={{ ios: 'sparkles', android: 'auto_awesome', web: 'auto_awesome' }} size={21} tintColor="#FFFFFF" /></View>
             <View style={styles.headerCopy}><View style={styles.titleRow}><ThemedText style={styles.title}>AI 图片记账</ThemedText><View style={styles.betaBadge}><ThemedText style={styles.betaText}>内测</ThemedText></View></View><ThemedText type="small" themeColor="textSecondary">小票、订单和支付截图都可以发给我</ThemedText></View>
@@ -637,5 +660,95 @@ const styles = StyleSheet.create({
   receiptSavedLine: { alignItems: 'center', paddingTop: 2 },
   receiptSavedText: { ...Type.footnote, color: AppPalette.textMuted, fontWeight: FontWeight.semibold },
   receiptSavedTextConfirmed: { color: '#23885D' },
-  composerWrap: { paddingHorizontal: 10, paddingTop: 7, paddingBottom: 8, gap: 6, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.84)', backgroundColor: 'rgba(250,248,249,0.88)' }, suggestionRow: { flexDirection: 'row', gap: 7 }, suggestion: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: 'rgba(255,255,255,0.86)', borderWidth: 1, borderColor: AppPalette.line }, suggestionText: { ...Type.footnote, color: AppPalette.inkSoft, fontWeight: FontWeight.medium }, composer: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 7, borderRadius: 20, paddingHorizontal: 6, backgroundColor: AppPalette.surface, borderWidth: 1, borderColor: AppPalette.lineStrong }, attachButton: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: AppPalette.surfaceMuted }, attachText: { ...Glyph.md, lineHeight: 23, color: AppPalette.inkSoft }, input: { flex: 1, minWidth: 0, ...Type.body, color: AppPalette.ink, paddingVertical: 9 }, sendButton: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: AppPalette.primary }, sendButtonDisabled: { backgroundColor: AppPalette.lineStrong }, sendText: { ...Glyph.md, lineHeight: 22, color: '#FFFFFF', fontWeight: FontWeight.semibold }, privacyText: { ...Type.caption, color: AppPalette.textFaint, textAlign: 'center' }, pressed: { opacity: 0.68, transform: [{ scale: 0.97 }] },
+  composerWrap: {
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 12,
+    gap: 8,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: AppPalette.line,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  suggestionRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  suggestion: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: AppPalette.surfaceMuted,
+    borderWidth: 1,
+    borderColor: AppPalette.line,
+  },
+  suggestionText: {
+    ...Type.footnote,
+    color: AppPalette.inkSoft,
+    fontWeight: FontWeight.medium,
+  },
+  composer: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 24,
+    paddingHorizontal: 8,
+    backgroundColor: AppPalette.surface,
+    borderWidth: 1,
+    borderColor: AppPalette.lineStrong,
+  },
+  attachButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: AppPalette.surfaceMuted,
+  },
+  attachText: {
+    ...Glyph.md,
+    lineHeight: 23,
+    color: AppPalette.inkSoft,
+  },
+  input: {
+    flex: 1,
+    minWidth: 0,
+    ...Type.body,
+    color: AppPalette.ink,
+    paddingVertical: 10,
+  },
+  sendButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: AppPalette.primary,
+  },
+  sendButtonDisabled: {
+    backgroundColor: AppPalette.lineStrong,
+  },
+  sendText: {
+    ...Glyph.md,
+    lineHeight: 22,
+    color: '#FFFFFF',
+    fontWeight: FontWeight.semibold,
+  },
+  privacyText: {
+    ...Type.caption,
+    color: AppPalette.textFaint,
+    textAlign: 'center',
+  },
+  pressed: {
+    opacity: 0.68,
+    transform: [{ scale: 0.97 }],
+  },
 });

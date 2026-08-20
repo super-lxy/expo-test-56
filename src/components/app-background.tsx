@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
-/** Shared pastel atmosphere for the primary app surfaces. */
+/** Vibrant gradient atmosphere for modern fintech aesthetic. */
 export function AppBackground() {
   return <View pointerEvents="none" style={styles.background} />;
 }
@@ -8,7 +8,7 @@ export function AppBackground() {
 const styles = StyleSheet.create({
   background: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: '#F8F4F6',
-    experimental_backgroundImage: 'linear-gradient(150deg, #F5DDE6 0%, #FBF9F9 43%, #DDF4F6 100%)',
+    backgroundColor: '#FFFFFF',
+    experimental_backgroundImage: 'linear-gradient(135deg, #F7F0FF 0%, #FFFFFF 35%, #EFF6FF 70%, #F0FDF4 100%)',
   },
 });

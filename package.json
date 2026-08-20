@@ -8,6 +8,7 @@
     "expo": "~56.0.18",
     "expo-asset": "~56.0.22",
     "expo-constants": "~56.0.22",
+    "expo-crypto": "~56.0.0",
     "expo-device": "~56.0.4",
     "expo-file-system": "~56.0.9",
     "expo-font": "~56.0.7",
@@ -37,9 +38,12 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.12",
     "@types/react": "~19.2.2",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~56.0.4",
+    "jest": "^29.7.0",
+    "jest-expo": "~56.0.0",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -52,12 +56,30 @@
     "web": "expo start --web",
     "build:internal:android": "npx eas-cli@latest build --platform android --profile internal",
     "build:internal:ios": "npx eas-cli@latest build --platform ios --profile internal",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "expo": {
     "autolinking": {
       "nativeModulesDir": "./modules"
     }
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "transformIgnorePatterns": [
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg)"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.{ts,tsx}",
+      "!src/**/*.d.ts",
+      "!src/**/*.types.ts",
+      "!src/app/**/*"
+    ],
+    "testMatch": [
+      "**/__tests__/**/*.test.{ts,tsx}"
+    ]
   },
   "private": true
 }

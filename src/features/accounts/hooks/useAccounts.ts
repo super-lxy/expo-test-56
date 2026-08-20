@@ -13,7 +13,11 @@ export function useAccounts() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      setAllAccounts(await new AccountRepository(db).listWithBalances());
+      const result = await new AccountRepository(db).listWithBalances();
+      setAllAccounts(result || []);
+    } catch (error) {
+      console.error('Failed to load accounts:', error);
+      setAllAccounts([]);
     } finally {
       setLoading(false);
     }
@@ -25,8 +29,8 @@ export function useAccounts() {
     }, [refresh])
   );
 
-  const accounts = allAccounts.filter((account) => account.status !== 'hidden');
-  const hiddenAccounts = allAccounts.filter((account) => account.status === 'hidden');
+  const accounts = (allAccounts || []).filter((account) => account.status !== 'hidden');
+  const hiddenAccounts = (allAccounts || []).filter((account) => account.status === 'hidden');
 
   const updateAccountStatus = useCallback(async (id: string, status: AccountStatus) => {
     await new AccountRepository(db).updateStatus(id, status);

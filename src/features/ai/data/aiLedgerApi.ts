@@ -116,34 +116,71 @@ ${input.instruction?.trim() || '请重新检查这张账单'}
 }
 
 export async function recognizeBill(input: RecognizeBillInput, signal?: AbortSignal): Promise<RecognizedBill> {
+  // Validate image data URL format
+  if (!input.imageDataUrl || typeof input.imageDataUrl !== 'string') {
+    throw new Error('图片数据无效');
+  }
+
+  if (!input.imageDataUrl.startsWith('data:image/')) {
+    throw new Error('图片格式不支持，请提供有效的图片');
+  }
+
+  // Check image size to prevent memory issues
+  const base64Match = input.imageDataUrl.match(/^data:image\/[^;]+;base64,(.+)$/);
+  if (!base64Match) {
+    throw new Error('图片数据格式错误');
+  }
+
+  const base64Data = base64Match[1];
+  // Base64 is approximately 33% larger than binary
+  const sizeBytes = (base64Data.length * 3) / 4;
+  const maxSizeMB = 10;
+  if (sizeBytes > maxSizeMB * 1024 * 1024) {
+    throw new Error(`图片大小超过 ${maxSizeMB}MB 限制，请压缩后重试`);
+  }
+
   const config = await getAiConfig();
   if (!config.providerBaseUrl) throw new Error('请先在设置中填写服务商 Base URL');
   if (!config.apiKey) throw new Error('请先在设置中填写 API Key');
   if (!config.model) throw new Error('请先在设置中探测并选择 Model');
-  const response = await fetch(providerUrl(config.providerBaseUrl, 'responses'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.apiKey}` },
-    body: JSON.stringify({
-      model: config.model,
-      instructions: `${recognitionInstructions}${contextInstructions(input.context)}`,
-      input: [{
-        role: 'user',
-        content: [
-          { type: 'input_text', text: userInstruction(input) },
-          { type: 'input_image', image_url: input.imageDataUrl, detail: 'high' },
-        ],
-      }],
-      text: { format: { type: 'json_schema', name: 'recognized_bill', strict: true, schema: recognizedBillJsonSchema } },
-    }),
-    signal,
-  });
-  const payload = await readResponse(response, '识别失败');
-  const text = extractResponseText(payload);
-  if (!text) throw new Error('模型没有返回可确认的账单');
+
+  // Add timeout protection
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+
   try {
-    return parseRecognizedBill(JSON.parse(text));
+    const response = await fetch(providerUrl(config.providerBaseUrl, 'responses'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.apiKey}` },
+      body: JSON.stringify({
+        model: config.model,
+        instructions: `${recognitionInstructions}${contextInstructions(input.context)}`,
+        input: [{
+          role: 'user',
+          content: [
+            { type: 'input_text', text: userInstruction(input) },
+            { type: 'input_image', image_url: input.imageDataUrl, detail: 'high' },
+          ],
+        }],
+        text: { format: { type: 'json_schema', name: 'recognized_bill', strict: true, schema: recognizedBillJsonSchema } },
+      }),
+      signal: signal ?? controller.signal,
+    });
+    const payload = await readResponse(response, '识别失败');
+    const text = extractResponseText(payload);
+    if (!text) throw new Error('模型没有返回可确认的账单');
+    try {
+      return parseRecognizedBill(JSON.parse(text));
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : '识别结果格式无效');
+    }
   } catch (error) {
-    throw new Error(error instanceof Error ? error.message : '识别结果格式无效');
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('识别超时，请检查网络连接后重试');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

@@ -50,7 +50,7 @@ export function AppTabBar({ state, descriptors, navigation, insets }: BottomTabB
       pointerEvents="box-none"
       style={[
         styles.wrapper,
-        { bottom: Math.max(insets.bottom, 10) },
+        { paddingBottom: Math.max(insets.bottom, 0) },
         ctx ? { transform: [{ translateY: ctx.tabTranslateY }] } : undefined,
       ]}>
       <View style={styles.bar}>
@@ -80,8 +80,9 @@ export function AppTabBar({ state, descriptors, navigation, insets }: BottomTabB
 const styles = StyleSheet.create({
   wrapper: {
     position: 'absolute',
-    left: 14,
-    right: 14,
+    left: 0,
+    right: 0,
+    bottom: 0,
     height: 60,
     zIndex: 30,
     elevation: 30,
@@ -90,15 +91,15 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'stretch',
-    backgroundColor: 'rgba(255,255,255,0.82)',
-    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    backdropFilter: 'blur(10px)',
     paddingHorizontal: 7,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.92)',
+    borderTopWidth: 1,
+    borderTopColor: AppPalette.line,
     shadowColor: AppPalette.shadow,
-    shadowOpacity: 0.09,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: -2 },
     elevation: 8,
   },
   tabItem: {
@@ -110,7 +111,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   tabItemActive: {
-    backgroundColor: 'rgba(247,231,237,0.76)',
+    backgroundColor: 'rgba(139,92,246,0.10)',
   },
   tabLabel: {
     ...Type.caption,
@@ -129,15 +130,15 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#D785A2',
-    experimental_backgroundImage: 'linear-gradient(135deg, #E5A1B7 0%, #CE7898 100%)',
+    backgroundColor: '#8B5CF6',
+    experimental_backgroundImage: 'linear-gradient(135deg, #8B5CF6 0%, #3B82F6 100%)',
     borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.90)',
-    shadowColor: '#B96888',
-    shadowOpacity: 0.18,
-    shadowRadius: 7,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 5,
+    borderColor: 'rgba(255,255,255,0.95)',
+    shadowColor: '#8B5CF6',
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
   },
   addButtonPressed: {
     transform: [{ scale: 0.93 }],
