@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppBackground } from '@/components/app-background';
@@ -10,6 +10,7 @@ import { AppPalette, FontWeight, Spacing, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getAiConfig, saveAiConfig } from '@/features/ai/data/aiConfig';
 import { probeAiModels } from '@/features/ai/data/aiLedgerApi';
+import { getQuickTileSetupMode, requestAddQuickLedgerTile } from '@/platform/quick-ai-capture';
 
 function normalizeProviderBaseUrl(value: string) {
   const trimmed = value.trim().replace(/\/$/, '');
@@ -113,6 +114,29 @@ export function SettingsScreen() {
     }
   }
 
+  async function handleAddQuickTile() {
+    try {
+      const result = await requestAddQuickLedgerTile();
+      if (result === 'added') {
+        Alert.alert('添加成功', '“AI 记账”已经加入下拉栏。点击它即可授权截屏并识别。');
+      } else if (result === 'already-added') {
+        Alert.alert('已经添加', '“AI 记账”已在下拉栏中，无需重复添加。');
+      } else if (result === 'not-added') {
+        Alert.alert('没有添加', '你取消了系统确认，可以稍后重新添加。');
+      } else if (result === 'manual') {
+        Alert.alert('请手动添加快捷键', '下拉两次展开快捷设置，点击“编辑”，将“AI 记账”拖到常用区域。');
+      } else if (result === 'unavailable') {
+        Alert.alert('暂时无法添加', '请保持记账本位于前台后重试。');
+      } else if (result === 'error') {
+        Alert.alert('系统未能添加', '请稍后重试，或在快捷设置的“编辑”页面手动添加。');
+      } else {
+        Alert.alert('当前系统不支持', 'AI 记账快捷键需要 Android 7.0 或更高版本。');
+      }
+    } catch (error) {
+      Alert.alert('无法添加快捷键', error instanceof Error ? error.message : '请稍后重试');
+    }
+  }
+
   return (
     <ThemedView style={styles.container}>
       <AppBackground />
@@ -132,6 +156,19 @@ export function SettingsScreen() {
             <ThemedText style={styles.cardTitle}>标签管理</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">按人员、平台或项目整理每笔账单</ThemedText>
           </Pressable>
+          {Platform.OS === 'android' ? (
+            <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
+              <ThemedText style={styles.cardTitle}>下拉栏 AI 记账</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                点击系统快捷键后授权截取当前屏幕，并自动进入 AI 图片识别。每次新截屏会由 Android 显示安全确认。
+              </ThemedText>
+              <Pressable onPress={() => void handleAddQuickTile()} style={styles.quickTileButton}>
+                <ThemedText style={styles.quickTileButtonText}>
+                  {getQuickTileSetupMode() === 'manual' ? '查看添加方法' : '添加到下拉栏'}
+                </ThemedText>
+              </Pressable>
+            </View>
+          ) : null}
           <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
             <ThemedText style={styles.cardTitle}>AI 服务配置</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">可使用 OpenAI 或兼容 Responses API 的服务。探测和图片识别都会直接访问你填写的 Base URL。</ThemedText>
@@ -219,4 +256,6 @@ const styles = StyleSheet.create({
   secondaryButtonText: { ...Type.footnote, color: AppPalette.inkSoft, fontWeight: FontWeight.semibold },
   primaryButton: { borderRadius: 14, paddingHorizontal: 13, paddingVertical: 9, backgroundColor: AppPalette.primary },
   primaryButtonText: { ...Type.footnote, color: '#FFFFFF', fontWeight: FontWeight.semibold },
+  quickTileButton: { alignSelf: 'flex-start', marginTop: 6, borderRadius: 14, paddingHorizontal: 13, paddingVertical: 9, backgroundColor: AppPalette.primary },
+  quickTileButtonText: { ...Type.footnote, color: '#FFFFFF', fontWeight: FontWeight.semibold },
 });

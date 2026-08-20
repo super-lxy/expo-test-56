@@ -54,5 +54,10 @@
     "build:internal:ios": "npx eas-cli@latest build --platform ios --profile internal",
     "lint": "expo lint"
   },
+  "expo": {
+    "autolinking": {
+      "nativeModulesDir": "./modules"
+    }
+  },
   "private": true
 }

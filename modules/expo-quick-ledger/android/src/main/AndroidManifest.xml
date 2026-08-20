@@ -1,0 +1,30 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+
+  <application>
+    <activity
+      android:name="expo.modules.quickledger.CapturePermissionActivity"
+      android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
+      android:excludeFromRecents="true"
+      android:exported="false"
+      android:taskAffinity=""
+      android:theme="@style/Theme.QuickLedger.Capture" />
+
+    <service
+      android:name="expo.modules.quickledger.ScreenCaptureService"
+      android:exported="false"
+      android:foregroundServiceType="mediaProjection" />
+
+    <service
+      android:name="expo.modules.quickledger.QuickLedgerTileService"
+      android:exported="true"
+      android:icon="@drawable/ic_quick_ledger_tile"
+      android:label="@string/quick_ledger_tile_label"
+      android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+      <intent-filter>
+        <action android:name="android.service.quicksettings.action.QS_TILE" />
+      </intent-filter>
+    </service>
+  </application>
+</manifest>

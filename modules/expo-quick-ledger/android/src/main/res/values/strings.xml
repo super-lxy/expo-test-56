@@ -1,0 +1,5 @@
+<resources>
+  <string name="quick_ledger_tile_label">AI 记账</string>
+  <string name="quick_ledger_capture_channel">AI 记账截屏</string>
+  <string name="quick_ledger_capture_notification">正在截取当前屏幕…</string>
+</resources>

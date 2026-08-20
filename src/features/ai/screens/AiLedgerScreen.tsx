@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { SymbolView } from 'expo-symbols';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
@@ -32,6 +32,7 @@ import { createTransaction } from '@/features/transactions/application/createTra
 import type { TransactionDraft } from '@/features/transactions/domain/transaction.types';
 import type { Category } from '@/features/categories/domain/category.types';
 import type { AccountBalance } from '@/features/accounts/domain/account.types';
+import { consumePendingQuickCapture } from '@/platform/quick-ai-capture';
 
 type UploadedAsset = Pick<ImagePicker.ImagePickerAsset, 'uri' | 'fileName' | 'width' | 'height'>;
 type ResolvedBill = {
@@ -309,12 +310,16 @@ function BillReceiptCard({
 
 export function AiLedgerScreen() {
   const router = useRouter();
+  const captureParams = useLocalSearchParams<{
+    quickCaptureToken?: string | string[];
+  }>();
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView | null>(null);
   const requestIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
   const imageDataRef = useRef<{ uri: string; dataUrl: string } | null>(null);
   const queuedAssetRef = useRef<ImagePicker.ImagePickerAsset | null>(null);
+  const handledQuickCaptureTokenRef = useRef<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [latestAsset, setLatestAsset] = useState<UploadedAsset | null>(null);
@@ -416,6 +421,37 @@ export function AiLedgerScreen() {
       { text: '开始新账单', onPress: () => startImageAnalysis(asset) },
     ]);
   }, [activeBill, startImageAnalysis]);
+
+  useEffect(() => {
+    const captureToken = Array.isArray(captureParams.quickCaptureToken)
+      ? captureParams.quickCaptureToken[0]
+      : captureParams.quickCaptureToken;
+    if (Platform.OS !== 'android' || !captureToken || handledQuickCaptureTokenRef.current === captureToken) return;
+    handledQuickCaptureTokenRef.current = captureToken;
+    let active = true;
+    void consumePendingQuickCapture(captureToken)
+      .then((capture) => {
+        if (!active) return;
+        if (!capture) {
+          Alert.alert('快捷截屏已失效', '请从下拉栏重新点击“AI 记账”进行截屏。');
+          return;
+        }
+        appendSelectedImage({
+          uri: capture.uri,
+          fileName: `快捷截屏-${Date.now()}.png`,
+          width: capture.width,
+          height: capture.height,
+          mimeType: 'image/png',
+        });
+      })
+      .catch(() => {
+        if (active) Alert.alert('无法读取快捷截屏', '请从下拉栏重新截屏。');
+      })
+      .finally(() => {
+        if (active) router.setParams({ quickCaptureToken: undefined });
+      });
+    return () => { active = false; };
+  }, [appendSelectedImage, captureParams.quickCaptureToken, router]);
 
   useEffect(() => {
     const queuedAsset = queuedAssetRef.current;
