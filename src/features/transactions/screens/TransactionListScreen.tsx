@@ -32,7 +32,7 @@ export function TransactionListScreen() {
   function confirmDelete(transaction: Transaction) {
     Alert.alert(
       '删除账单',
-      `确定删除这笔${transaction.type === 'income' ? '收入' : transaction.type === 'transfer' ? '转账' : '支出'}记录吗？`,
+      `确定删除这笔${transaction.categoryId === 'reimbursement' ? '报销' : transaction.type === 'income' ? '收入' : transaction.type === 'transfer' ? '转账' : '支出'}记录吗？`,
       [
         { text: '取消', style: 'cancel' },
         {
@@ -58,7 +58,12 @@ export function TransactionListScreen() {
   function editTransaction(transaction: Transaction) {
     setSelectedTransaction(null);
     setTimeout(() => {
-      router.push({ pathname: '/transaction/create', params: { transactionId: transaction.id } });
+      router.push({
+        pathname: transaction.categoryId === 'reimbursement'
+          ? '/transaction/reimbursement'
+          : '/transaction/create',
+        params: { transactionId: transaction.id },
+      });
     }, 320);
   }
 

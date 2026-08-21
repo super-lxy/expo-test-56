@@ -42,6 +42,7 @@ export function AppTabBar({ state, descriptors, navigation, insets }: BottomTabB
   const router = useRouter();
   const leftRoutes = state.routes.slice(0, 2);
   const rightRoutes = state.routes.slice(2);
+  const bottomInset = Math.max(insets.bottom, 0);
 
   const ctx = useTabScroll();
 
@@ -50,7 +51,7 @@ export function AppTabBar({ state, descriptors, navigation, insets }: BottomTabB
       pointerEvents="box-none"
       style={[
         styles.wrapper,
-        { paddingBottom: Math.max(insets.bottom, 0) },
+        { height: 60 + bottomInset, paddingBottom: bottomInset },
         ctx ? { transform: [{ translateY: ctx.tabTranslateY }] } : undefined,
       ]}>
       <View style={styles.bar}>
@@ -83,7 +84,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: 60,
     zIndex: 30,
     elevation: 30,
   },

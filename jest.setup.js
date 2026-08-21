@@ -1,5 +1,11 @@
 // Mock expo-crypto for tests
 jest.mock('expo-crypto', () => ({
+  getRandomValues: jest.fn((typedArray) => {
+    for (let i = 0; i < typedArray.length; i++) {
+      typedArray[i] = Math.floor(Math.random() * 256);
+    }
+    return typedArray;
+  }),
   getRandomBytesAsync: jest.fn(async (length) => {
     const bytes = new Uint8Array(length);
     for (let i = 0; i < length; i++) {

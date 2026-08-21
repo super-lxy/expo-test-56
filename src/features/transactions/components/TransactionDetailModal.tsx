@@ -144,6 +144,7 @@ export function TransactionDetailModal({
 
   const isIncome = displayedTransaction.type === 'income';
   const isTransfer = displayedTransaction.type === 'transfer';
+  const isReimbursement = displayedTransaction.categoryId === 'reimbursement';
   const isInitialBalance = displayedTransaction.categoryId === 'initial-balance';
   const isInternalTransfer = isTransfer || isInitialBalance;
   const initialBalancePrefix = displayedTransaction.accountId === EXTERNAL_TRANSFER_ACCOUNT_ID
@@ -155,6 +156,8 @@ export function TransactionDetailModal({
         : '-';
   const categoryTitle = isInternalTransfer
     ? '内部转账'
+    : isReimbursement
+      ? '报销'
     : displayedTransaction.parentCategoryName !== displayedTransaction.categoryName
       ? `${displayedTransaction.parentCategoryName} - ${displayedTransaction.categoryName}`
       : displayedTransaction.categoryName;
@@ -162,6 +165,8 @@ export function TransactionDetailModal({
     ? initialBalancePrefix === '-' ? AppPalette.danger : AppPalette.income
     : isTransfer
       ? AppPalette.ink
+      : isReimbursement
+        ? AppPalette.primary
       : isIncome
         ? AppPalette.income
         : AppPalette.danger;
@@ -290,10 +295,19 @@ export function TransactionDetailModal({
 
             <View style={styles.card}>
               <SectionTitle>资产</SectionTitle>
-              <DetailRow
-                label={isTransfer ? '转出账户' : '资产账户'}
-                value={displayedTransaction.accountName}
-              />
+              {isReimbursement ? (
+                <>
+                  <DetailRow label="报销账户" value={displayedTransaction.reimbursementSourceAccountName ?? '未选择（账外）'} />
+                  <DetailRow label="收款账户" value={displayedTransaction.accountName} />
+                  <DetailRow label="关联账单" value={`${displayedTransaction.reimbursedExpenseIds.length} 笔`} />
+                  <DetailRow label="收支统计" value={displayedTransaction.excludedFromStats ? '不计入' : '计入'} />
+                </>
+              ) : (
+                <DetailRow
+                  label={isTransfer ? '转出账户' : '资产账户'}
+                  value={displayedTransaction.accountName}
+                />
+              )}
               {isTransfer ? (
                 <DetailRow label="转入账户" value={displayedTransaction.transferAccountName ?? '-'} />
               ) : null}
@@ -302,6 +316,9 @@ export function TransactionDetailModal({
               ) : null}
               {displayedTransaction.discountCents > 0 ? (
                 <DetailRow label="优惠" value={formatCurrency(displayedTransaction.discountCents)} />
+              ) : null}
+              {displayedTransaction.type === 'expense' ? (
+                <DetailRow label="报销状态" value={displayedTransaction.isReimbursable ? '待报销' : '无需报销'} />
               ) : null}
             </View>
 

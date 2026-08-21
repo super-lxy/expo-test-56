@@ -26,6 +26,11 @@ export type Transaction = {
   discountCents: number;
   occurredAt: string;
   note: string;
+  excludedFromStats: boolean;
+  isReimbursable: boolean;
+  reimbursementSourceAccountId?: string;
+  reimbursementSourceAccountName?: string;
+  reimbursedExpenseIds: string[];
   tags: TransactionTag[];
 };
 
@@ -40,9 +45,20 @@ export type TransactionDraft = {
   occurredAt: string;
   note: string;
   tagIds?: string[];
+  isReimbursable?: boolean;
 };
 
 export type MonthlySummary = {
   incomeCents: number;
   expenseCents: number;
+};
+
+export type ReimbursementDraft = {
+  amountCents: number;
+  sourceAccountId?: string;
+  receiveAccountId: string;
+  expenseTransactionIds: string[];
+  occurredAt: string;
+  note: string;
+  excludedFromStats: boolean;
 };

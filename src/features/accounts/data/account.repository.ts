@@ -153,7 +153,8 @@ export class AccountRepository {
     await this.db.withTransactionAsync(async () => {
       await this.db.runAsync(
         `DELETE FROM transactions
-         WHERE account_id = ? OR transfer_account_id = ?`,
+         WHERE account_id = ? OR transfer_account_id = ? OR reimbursement_source_account_id = ?`,
+        id,
         id,
         id
       );

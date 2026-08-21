@@ -29,12 +29,12 @@ import { parseAmountToCents } from '@/shared/utils/currency';
 import { formatDateTime } from '@/shared/utils/date';
 import { useTheme } from '@/hooks/use-theme';
 
-const TYPE_OPTIONS: { label: string; type?: TransactionType }[] = [
+const TYPE_OPTIONS: { label: string; type?: TransactionType; route?: '/transaction/reimbursement' }[] = [
   { label: '支出', type: 'expense' },
   { label: '收入', type: 'income' },
   { label: '转账', type: 'transfer' },
   { label: '借还' },
-  { label: '报销' },
+  { label: '报销', route: '/transaction/reimbursement' },
   { label: '退款' },
 ];
 
@@ -61,7 +61,10 @@ export function TransactionFormScreen() {
   const transactionId = typeof params.transactionId === 'string' ? params.transactionId : null;
   const aiDraftMessageId = firstParam(params.aiDraftMessageId) ?? null;
   const isEditing = transactionId !== null;
-  const initialDraftType: TransactionType = firstParam(params.draftType) === 'income' ? 'income' : 'expense';
+  const requestedDraftType = firstParam(params.draftType);
+  const initialDraftType: TransactionType = requestedDraftType === 'income' || requestedDraftType === 'transfer'
+    ? requestedDraftType
+    : 'expense';
   const initialDraftAmountCents = Number(firstParam(params.draftAmountCents));
   const initialDraftOccurredAt = new Date(firstParam(params.draftOccurredAt) ?? '');
   const theme = useTheme();
@@ -76,6 +79,7 @@ export function TransactionFormScreen() {
   const [transferAdjustmentMode, setTransferAdjustmentMode] = useState<TransferAdjustmentMode>('fee');
   const [activeAmountField, setActiveAmountField] = useState<'amount' | 'adjustment'>('amount');
   const [note, setNote] = useState(firstParam(params.draftNote) ?? '');
+  const [isReimbursable, setIsReimbursable] = useState(false);
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [tagPickerMounted, setTagPickerMounted] = useState(false);
@@ -134,6 +138,7 @@ export function TransactionFormScreen() {
         ));
         setActiveAmountField('amount');
         setNote(existing.note);
+        setIsReimbursable(existing.isReimbursable);
         setTagIds(existing.tags.map((tag) => tag.id));
         setCategoryId(existing.categoryId);
         setEditingCategory({
@@ -294,6 +299,7 @@ export function TransactionFormScreen() {
         occurredAt: occurredAt.toISOString(),
         note,
         tagIds,
+        isReimbursable: type === 'expense' && isReimbursable,
       };
       let createdTransactionId: string | null = null;
       if (transactionId) {
@@ -311,6 +317,7 @@ export function TransactionFormScreen() {
         setActiveAmountField('amount');
         setNote('');
         setTagIds([]);
+        setIsReimbursable(false);
       } else {
         Keyboard.dismiss();
         router.back();
@@ -347,15 +354,21 @@ export function TransactionFormScreen() {
           <View style={styles.header}>
             <Pressable onPress={() => router.back()} hitSlop={10} style={styles.headerSideButton}><ThemedText style={styles.back}>‹</ThemedText></Pressable>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeBar} contentContainerStyle={styles.typeBarContent}>
-              {TYPE_OPTIONS.map((option) => (
-                <Pressable
-                  key={option.label}
-                  disabled={!option.type}
-                  onPress={() => option.type && handleTypeChange(option.type)}
-                    style={[styles.typeItem, option.type === type && styles.activeType, !option.type && styles.disabledTypeItem]}>
-                  <ThemedText style={[styles.typeText, option.type === type && styles.activeTypeText, !option.type && styles.disabledType]}>{option.label}</ThemedText>
-                </Pressable>
-              ))}
+              {TYPE_OPTIONS.map((option) => {
+                const disabled = (!option.type && !option.route) || (isEditing && Boolean(option.route));
+                return (
+                  <Pressable
+                    key={option.label}
+                    disabled={disabled}
+                    onPress={() => {
+                      if (option.route) router.replace(option.route);
+                      else if (option.type) handleTypeChange(option.type);
+                    }}
+                    style={[styles.typeItem, option.type === type && styles.activeType, disabled && styles.disabledTypeItem]}>
+                    <ThemedText style={[styles.typeText, option.type === type && styles.activeTypeText, disabled && styles.disabledType]}>{option.label}</ThemedText>
+                  </Pressable>
+                );
+              })}
             </ScrollView>
             <Pressable onPress={() => router.push('/settings')} hitSlop={10} style={styles.headerSideButton}><ThemedText style={styles.settings}>⚙</ThemedText></Pressable>
           </View>
@@ -372,15 +385,6 @@ export function TransactionFormScreen() {
               selectedCategoryId={effectiveCategoryId}
               onCategoryChange={setCategoryId}
               onSettingsPress={() => router.push('/categories')}
-              onAddChildPress={(parent) => router.push({
-                pathname: '/categories/create',
-                params: {
-                  type: type === 'income' ? 'income' : 'expense',
-                  parentId: parent.id,
-                  parentName: parent.name,
-                  ...(parent.iconType === 'emoji' ? { parentIcon: parent.icon } : {}),
-                },
-              })}
             />
           ) : (
             <TransferFormPanel
@@ -417,7 +421,17 @@ export function TransactionFormScreen() {
             </View>
             <ThemedText style={styles.quickText} numberOfLines={1}>{selectedAccount?.name ?? '账户'}</ThemedText>
           </Pressable>
-          <Pressable style={styles.quickOption}><ThemedText style={styles.quickOptionIcon}>🧾</ThemedText><ThemedText style={styles.quickText}>报销</ThemedText></Pressable>
+          {type === 'expense' ? (
+            <Pressable
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: isReimbursable }}
+              accessibilityLabel="标记为待报销"
+              onPress={() => setIsReimbursable((value) => !value)}
+              style={[styles.quickOption, styles.reimbursementOption, isReimbursable && styles.reimbursementOptionActive]}>
+              <ThemedText style={[styles.quickOptionIcon, isReimbursable && styles.reimbursementTextActive]}>🧾</ThemedText>
+              <ThemedText style={[styles.quickText, isReimbursable && styles.reimbursementTextActive]}>报销</ThemedText>
+            </Pressable>
+          ) : null}
           <Pressable
             onPress={() => {
               setTagPickerMounted(true);
@@ -556,11 +570,15 @@ const styles = StyleSheet.create({
   quickOptions: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 9, paddingVertical: 6, gap: 5 },
   // 药丸形带描边，参考图样式
   quickOption: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 15, backgroundColor: AppPalette.lineStrong },
+  quickOptionDisabled: { opacity: 0.42 },
   accountQuickOption: { maxWidth: 112, backgroundColor: AppPalette.cyanSoft },
   quickAccountIconBox: { width: 18, height: 18, borderRadius: 9, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
   quickAccountIcon: { width: 17, height: 17, borderRadius: 8.5 },
   quickOptionIcon: { fontSize: 13, lineHeight: 16 },
   quickText: { ...Type.footnote, fontWeight: FontWeight.medium, color: '#3A4249' },
+  reimbursementOption: { backgroundColor: AppPalette.surfaceMuted },
+  reimbursementOptionActive: { backgroundColor: AppPalette.lavenderSoft },
+  reimbursementTextActive: { color: AppPalette.primary, fontWeight: FontWeight.semibold },
   activeTagOption: { backgroundColor: AppPalette.lavenderSoft },
   activeTagText: { color: AppPalette.primary },
   inputBar: { minHeight: 50, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, gap: 6, borderTopWidth: 1, borderColor: AppPalette.lineStrong, backgroundColor: 'rgba(255,255,255,0.84)' },

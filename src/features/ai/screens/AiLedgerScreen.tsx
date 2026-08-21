@@ -338,11 +338,13 @@ export function AiLedgerScreen() {
 
   // 键盘监听：显示时隐藏 Tab 栏
   useEffect(() => {
-    const showListener = Keyboard.addListener('keyboardWillShow', () => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showListener = Keyboard.addListener(showEvent, () => {
       setKeyboardVisible(true);
       tabScroll?.hideTabBar();
     });
-    const hideListener = Keyboard.addListener('keyboardWillHide', () => {
+    const hideListener = Keyboard.addListener(hideEvent, () => {
       setKeyboardVisible(false);
       tabScroll?.showTabBar();
     });
@@ -350,6 +352,7 @@ export function AiLedgerScreen() {
     return () => {
       showListener.remove();
       hideListener.remove();
+      tabScroll?.showTabBar();
     };
   }, [tabScroll]);
 

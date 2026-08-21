@@ -2,12 +2,14 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import type {
   MonthlySummary,
+  ReimbursementDraft,
   Transaction,
   TransactionDraft,
 } from '../domain/transaction.types';
 import type { CategoryIconType } from '@/features/categories/domain/category.types';
 import { categoryIconDataUri } from '@/features/categories/data/categoryIconStorage';
 import { generateSecureId } from '@/shared/utils/idGenerator';
+import { validateReimbursementDraft } from '@/features/reimbursements/domain/reimbursement.rules';
 
 type TransactionRow = {
   id: string;
@@ -27,6 +29,10 @@ type TransactionRow = {
   discount_cents: number | null;
   occurred_at: string;
   note: string;
+  exclude_from_stats: number | null;
+  is_reimbursable: number | null;
+  reimbursement_source_account_id: string | null;
+  reimbursement_source_account_name: string | null;
 };
 
 type TransactionTagRow = {
@@ -42,12 +48,22 @@ type CategoryImageRow = {
   icon_mime: string | null;
 };
 
+type ReimbursementItemRow = {
+  reimbursement_transaction_id: string;
+  expense_transaction_id: string;
+};
+
 type TransactionDetailRow = TransactionRow & {
   category_icon_blob: Uint8Array | null;
   category_icon_mime: string | null;
 };
 
-function mapTransaction(row: TransactionRow, imageUri?: string, tags: Transaction['tags'] = []): Transaction {
+function mapTransaction(
+  row: TransactionRow,
+  imageUri?: string,
+  tags: Transaction['tags'] = [],
+  reimbursedExpenseIds: string[] = [],
+): Transaction {
   return {
     id: row.id,
     type: row.type,
@@ -68,6 +84,11 @@ function mapTransaction(row: TransactionRow, imageUri?: string, tags: Transactio
     discountCents: row.discount_cents ?? 0,
     occurredAt: row.occurred_at,
     note: row.note,
+    excludedFromStats: (row.exclude_from_stats ?? 0) !== 0,
+    isReimbursable: (row.is_reimbursable ?? 0) !== 0,
+    reimbursementSourceAccountId: row.reimbursement_source_account_id ?? undefined,
+    reimbursementSourceAccountName: row.reimbursement_source_account_name ?? undefined,
+    reimbursedExpenseIds,
     tags,
   };
 }
@@ -96,12 +117,17 @@ export class TransactionRepository {
         t.fee_cents,
         t.discount_cents,
         t.occurred_at,
-        t.note
+        t.note,
+        t.exclude_from_stats,
+        t.is_reimbursable,
+        t.reimbursement_source_account_id,
+        reimbursement_source.name AS reimbursement_source_account_name
       FROM transactions t
       INNER JOIN categories c ON c.id = t.category_id
       LEFT JOIN categories parent_c ON parent_c.id = c.parent_id
       LEFT JOIN accounts a ON a.id = t.account_id
       LEFT JOIN accounts target_a ON target_a.id = t.transfer_account_id
+      LEFT JOIN accounts reimbursement_source ON reimbursement_source.id = t.reimbursement_source_account_id
       WHERE t.id = ? AND t.deleted_at IS NULL
     `, id);
     if (!row) return null;
@@ -117,18 +143,22 @@ export class TransactionRepository {
     const imageUri = row.category_icon_type === 'image'
       ? categoryIconDataUri(row.category_icon_blob, row.category_icon_mime) ?? undefined
       : undefined;
+    const reimbursementRows = await this.db.getAllAsync<{ expense_transaction_id: string }>(
+      `SELECT expense_transaction_id
+       FROM reimbursement_items
+       WHERE reimbursement_transaction_id = ?
+       ORDER BY created_at`,
+      id
+    );
     return mapTransaction(row, imageUri, tagRows.map((tag) => ({
       id: tag.id,
       name: tag.name,
       groupName: tag.group_name,
-    })));
+    })), reimbursementRows.map((item) => item.expense_transaction_id));
   }
 
-  async list(options: { limit?: number; offset?: number } = {}): Promise<Transaction[]> {
-    const limit = options.limit ?? 100; // 默认每页100条
-    const offset = options.offset ?? 0;
-
-    const [rows, categoryImages, tagRows] = await Promise.all([
+  async list(): Promise<Transaction[]> {
+    const [rows, categoryImages, tagRows, reimbursementRows] = await Promise.all([
       this.db.getAllAsync<TransactionRow>(`
         SELECT
           t.id,
@@ -147,16 +177,20 @@ export class TransactionRepository {
           t.fee_cents,
           t.discount_cents,
           t.occurred_at,
-          t.note
+          t.note,
+          t.exclude_from_stats,
+          t.is_reimbursable,
+          t.reimbursement_source_account_id,
+          reimbursement_source.name AS reimbursement_source_account_name
         FROM transactions t
         INNER JOIN categories c ON c.id = t.category_id
         LEFT JOIN categories parent_c ON parent_c.id = c.parent_id
         LEFT JOIN accounts a ON a.id = t.account_id
         LEFT JOIN accounts target_a ON target_a.id = t.transfer_account_id
+        LEFT JOIN accounts reimbursement_source ON reimbursement_source.id = t.reimbursement_source_account_id
         WHERE t.deleted_at IS NULL
         ORDER BY t.occurred_at DESC, t.created_at DESC
-        LIMIT ? OFFSET ?
-      `, limit, offset),
+      `),
       this.db.getAllAsync<CategoryImageRow>(`
         SELECT id, icon_blob, icon_mime
         FROM categories
@@ -171,6 +205,14 @@ export class TransactionRepository {
         WHERE tx.deleted_at IS NULL
         ORDER BY g.sort_order, t.sort_order
       `),
+      this.db.getAllAsync<ReimbursementItemRow>(`
+        SELECT ri.reimbursement_transaction_id, ri.expense_transaction_id
+        FROM reimbursement_items ri
+        INNER JOIN transactions reimbursement
+          ON reimbursement.id = ri.reimbursement_transaction_id
+        WHERE reimbursement.deleted_at IS NULL
+        ORDER BY ri.created_at
+      `),
     ]);
     const imageUris = new Map(
       categoryImages.map((category) => [
@@ -184,7 +226,18 @@ export class TransactionRepository {
       tags.push({ id: tag.id, name: tag.name, groupName: tag.group_name });
       tagsByTransaction.set(tag.transaction_id, tags);
     }
-    return rows.map((row) => mapTransaction(row, imageUris.get(row.category_id), tagsByTransaction.get(row.id)));
+    const expensesByReimbursement = new Map<string, string[]>();
+    for (const item of reimbursementRows) {
+      const ids = expensesByReimbursement.get(item.reimbursement_transaction_id) ?? [];
+      ids.push(item.expense_transaction_id);
+      expensesByReimbursement.set(item.reimbursement_transaction_id, ids);
+    }
+    return rows.map((row) => mapTransaction(
+      row,
+      imageUris.get(row.category_id),
+      tagsByTransaction.get(row.id),
+      expensesByReimbursement.get(row.id),
+    ));
   }
 
   async create(draft: TransactionDraft) {
@@ -195,8 +248,9 @@ export class TransactionRepository {
       await transaction.runAsync(
         `INSERT INTO transactions
          (id, type, amount_cents, category_id, account_id, transfer_account_id,
-          fee_cents, discount_cents, occurred_at, note, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          fee_cents, discount_cents, occurred_at, note, exclude_from_stats,
+          is_reimbursable, reimbursement_source_account_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, NULL, ?, ?)`,
         id,
         draft.type,
         draft.amountCents,
@@ -207,6 +261,7 @@ export class TransactionRepository {
         draft.discountCents ?? 0,
         draft.occurredAt,
         draft.note.trim(),
+        draft.type === 'expense' && draft.isReimbursable ? 1 : 0,
         now,
         now
       );
@@ -218,14 +273,21 @@ export class TransactionRepository {
 
   async softDelete(id: string) {
     const now = new Date().toISOString();
-    await this.db.runAsync(
-      `UPDATE transactions
-       SET deleted_at = ?, updated_at = ?
-       WHERE id = ? AND deleted_at IS NULL`,
-      now,
-      now,
-      id
-    );
+    await this.db.withExclusiveTransactionAsync(async (transaction) => {
+      // 删除报销记录后释放原支出账单，使它们可以再次选择报销。
+      await transaction.runAsync(
+        `DELETE FROM reimbursement_items WHERE reimbursement_transaction_id = ?`,
+        id
+      );
+      await transaction.runAsync(
+        `UPDATE transactions
+         SET deleted_at = ?, updated_at = ?
+         WHERE id = ? AND deleted_at IS NULL`,
+        now,
+        now,
+        id
+      );
+    });
   }
 
   async update(id: string, draft: TransactionDraft) {
@@ -235,7 +297,8 @@ export class TransactionRepository {
         `UPDATE transactions
          SET type = ?, amount_cents = ?, category_id = ?, account_id = ?,
              transfer_account_id = ?, fee_cents = ?, discount_cents = ?,
-             occurred_at = ?, note = ?, updated_at = ?
+             occurred_at = ?, note = ?, exclude_from_stats = 0,
+             is_reimbursable = ?, reimbursement_source_account_id = NULL, updated_at = ?
          WHERE id = ? AND deleted_at IS NULL`,
         draft.type,
         draft.amountCents,
@@ -246,11 +309,181 @@ export class TransactionRepository {
         draft.discountCents ?? 0,
         draft.occurredAt,
         draft.note.trim(),
+        draft.type === 'expense' && draft.isReimbursable ? 1 : 0,
         now,
         id
       );
       await this.replaceTags(transaction, id, draft.tagIds ?? [], now);
     });
+  }
+
+  async listReimbursableExpenses(reimbursementId?: string): Promise<Transaction[]> {
+    const rows = await this.db.getAllAsync<TransactionDetailRow>(`
+      SELECT
+        t.id,
+        t.type,
+        t.amount_cents,
+        t.category_id,
+        c.name AS category_name,
+        parent_c.name AS parent_category_name,
+        c.icon AS category_icon,
+        c.icon_type AS category_icon_type,
+        c.icon_blob AS category_icon_blob,
+        c.icon_mime AS category_icon_mime,
+        c.color AS category_color,
+        t.account_id,
+        COALESCE(a.name, '已删除资产') AS account_name,
+        t.transfer_account_id,
+        NULL AS transfer_account_name,
+        t.fee_cents,
+        t.discount_cents,
+        t.occurred_at,
+        t.note,
+        t.exclude_from_stats,
+        t.is_reimbursable,
+        t.reimbursement_source_account_id,
+        NULL AS reimbursement_source_account_name
+      FROM transactions t
+      INNER JOIN categories c ON c.id = t.category_id
+      LEFT JOIN categories parent_c ON parent_c.id = c.parent_id
+      LEFT JOIN accounts a ON a.id = t.account_id
+      WHERE t.deleted_at IS NULL
+        AND t.type = 'expense'
+        AND (
+          t.is_reimbursable = 1
+          OR EXISTS (
+            SELECT 1 FROM reimbursement_items current_ri
+            WHERE current_ri.expense_transaction_id = t.id
+              AND current_ri.reimbursement_transaction_id = ?
+          )
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM reimbursement_items ri
+          INNER JOIN transactions reimbursement
+            ON reimbursement.id = ri.reimbursement_transaction_id
+          WHERE ri.expense_transaction_id = t.id
+            AND reimbursement.deleted_at IS NULL
+            AND ri.reimbursement_transaction_id != ?
+        )
+      ORDER BY t.occurred_at DESC, t.created_at DESC
+    `, reimbursementId ?? '', reimbursementId ?? '');
+
+    return rows.map((row) => mapTransaction(
+      row,
+      row.category_icon_type === 'image'
+        ? categoryIconDataUri(row.category_icon_blob, row.category_icon_mime) ?? undefined
+        : undefined,
+    ));
+  }
+
+  async createReimbursement(draft: ReimbursementDraft) {
+    return this.saveReimbursement(null, draft);
+  }
+
+  async updateReimbursement(id: string, draft: ReimbursementDraft) {
+    return this.saveReimbursement(id, draft);
+  }
+
+  private async saveReimbursement(id: string | null, draft: ReimbursementDraft) {
+    const expenseIds = [...new Set(draft.expenseTransactionIds)];
+    const validationError = validateReimbursementDraft({ ...draft, expenseTransactionIds: expenseIds });
+    if (validationError) throw new Error(validationError);
+
+    const reimbursementId = id ?? generateSecureId();
+    const now = new Date().toISOString();
+    await this.db.withExclusiveTransactionAsync(async (transaction) => {
+      const placeholders = expenseIds.map(() => '?').join(', ');
+      const validExpenses = await transaction.getAllAsync<{ id: string }>(
+        `SELECT expense.id
+         FROM transactions expense
+         WHERE expense.id IN (${placeholders})
+           AND expense.type = 'expense'
+           AND (
+             expense.is_reimbursable = 1
+             OR EXISTS (
+               SELECT 1 FROM reimbursement_items current_ri
+               WHERE current_ri.expense_transaction_id = expense.id
+                 AND current_ri.reimbursement_transaction_id = ?
+             )
+           )
+           AND expense.deleted_at IS NULL
+           AND NOT EXISTS (
+             SELECT 1
+             FROM reimbursement_items ri
+             INNER JOIN transactions reimbursement
+               ON reimbursement.id = ri.reimbursement_transaction_id
+             WHERE ri.expense_transaction_id = expense.id
+               AND reimbursement.deleted_at IS NULL
+               AND ri.reimbursement_transaction_id != ?
+           )`,
+        ...expenseIds,
+        reimbursementId,
+        reimbursementId
+      );
+      if (validExpenses.length !== expenseIds.length) {
+        throw new Error('部分账单未标记待报销、已删除或已经报销');
+      }
+
+      if (id) {
+        const existing = await transaction.getFirstAsync<{ id: string }>(
+          `SELECT id FROM transactions
+           WHERE id = ? AND category_id = 'reimbursement' AND deleted_at IS NULL`,
+          id
+        );
+        if (!existing) throw new Error('报销记录不存在或已删除');
+        await transaction.runAsync(
+          `UPDATE transactions
+           SET type = 'income', amount_cents = ?, category_id = 'reimbursement',
+               account_id = ?, transfer_account_id = NULL, fee_cents = 0, discount_cents = 0,
+               occurred_at = ?, note = ?, exclude_from_stats = ?, is_reimbursable = 0,
+               reimbursement_source_account_id = ?, updated_at = ?
+           WHERE id = ?`,
+          draft.amountCents,
+          draft.receiveAccountId,
+          draft.occurredAt,
+          draft.note.trim(),
+          draft.excludedFromStats ? 1 : 0,
+          draft.sourceAccountId ?? null,
+          now,
+          id
+        );
+        await transaction.runAsync(
+          `DELETE FROM reimbursement_items WHERE reimbursement_transaction_id = ?`,
+          id
+        );
+      } else {
+        await transaction.runAsync(
+          `INSERT INTO transactions
+           (id, type, amount_cents, category_id, account_id, transfer_account_id,
+            fee_cents, discount_cents, occurred_at, note, exclude_from_stats,
+            is_reimbursable, reimbursement_source_account_id, created_at, updated_at)
+           VALUES (?, 'income', ?, 'reimbursement', ?, NULL, 0, 0, ?, ?, ?, 0, ?, ?, ?)`,
+          reimbursementId,
+          draft.amountCents,
+          draft.receiveAccountId,
+          draft.occurredAt,
+          draft.note.trim(),
+          draft.excludedFromStats ? 1 : 0,
+          draft.sourceAccountId ?? null,
+          now,
+          now
+        );
+      }
+
+      for (const expenseId of expenseIds) {
+        await transaction.runAsync(
+          `INSERT INTO reimbursement_items
+           (reimbursement_transaction_id, expense_transaction_id, created_at)
+           VALUES (?, ?, ?)`,
+          reimbursementId,
+          expenseId,
+          now
+        );
+      }
+    });
+
+    return reimbursementId;
   }
 
   private async replaceTags(db: SQLiteDatabase, transactionId: string, tagIds: string[], now: string) {
@@ -299,6 +532,7 @@ export class TransactionRepository {
         END), 0) AS expense_cents
        FROM transactions
        WHERE deleted_at IS NULL
+         AND exclude_from_stats = 0
          AND category_id != 'initial-balance'
          AND occurred_at >= ? AND occurred_at < ?`,
       start,
@@ -321,7 +555,9 @@ export class TransactionRepository {
            ELSE 0
          END), 0) AS expense_cents
        FROM transactions
-       WHERE deleted_at IS NULL AND category_id != 'initial-balance'`
+       WHERE deleted_at IS NULL
+         AND exclude_from_stats = 0
+         AND category_id != 'initial-balance'`
     );
     return {
       totalIncomeCents: row?.income_cents ?? 0,

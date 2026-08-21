@@ -29,6 +29,9 @@ export function AccountPickerSheet({
   sourceAccountId,
   targetAccountId,
   transferMode,
+  titleOverride,
+  allowEmpty = false,
+  emptyLabel = '不选择账户',
   onClose,
   onClosed,
   onSelect,
@@ -40,6 +43,9 @@ export function AccountPickerSheet({
   sourceAccountId: string;
   targetAccountId: string;
   transferMode: boolean;
+  titleOverride?: string;
+  allowEmpty?: boolean;
+  emptyLabel?: string;
   onClose: () => void;
   onClosed: () => void;
   onSelect: (kind: AccountPickerKind, accountId: string) => void;
@@ -51,11 +57,11 @@ export function AccountPickerSheet({
   const bottomGap = Math.max(insets.bottom, 12);
 
   const activeKind = kind ?? displayKind;
-  const title = activeKind === 'target'
+  const title = titleOverride ?? (activeKind === 'target'
     ? '选择转入账户'
     : transferMode
       ? '选择转出账户'
-      : '选择账户';
+      : '选择账户');
   const selectedAccountId = activeKind === 'target' ? targetAccountId : sourceAccountId;
   const oppositeAccountId = activeKind === 'target' ? sourceAccountId : targetAccountId;
   const availableAccounts = transferMode
@@ -127,6 +133,20 @@ export function AccountPickerSheet({
             showsVerticalScrollIndicator={false}
             bounces
             alwaysBounceVertical={false}>
+            {allowEmpty ? (
+              <Pressable
+                style={({ pressed }) => [styles.accountRow, pressed && styles.accountRowPressed]}
+                onPress={() => onSelect(activeKind, '')}>
+                <View style={[styles.accountIconBox, styles.emptyAccountIconBox]}>
+                  <ThemedText style={styles.emptyAccountIcon}>∅</ThemedText>
+                </View>
+                <View style={styles.accountCopy}>
+                  <ThemedText style={styles.accountLabel}>{emptyLabel}</ThemedText>
+                  <ThemedText style={styles.externalAccountDescription}>报销款来自账外，无需关联资产</ThemedText>
+                </View>
+                {!selectedAccountId ? <ThemedText style={styles.checkmark}>✓</ThemedText> : null}
+              </Pressable>
+            ) : null}
             {showExternalAccount ? (
               <Pressable
                 style={({ pressed }) => [
@@ -238,6 +258,8 @@ const styles = StyleSheet.create({
   accountFallbackIcon: { ...Glyph.md },
   externalAccountIconBox: { backgroundColor: 'rgba(255,255,255,0.82)', borderWidth: 1, borderColor: 'rgba(91,96,104,0.08)' },
   externalAccountIconImage: { width: 28, height: 28 },
+  emptyAccountIconBox: { backgroundColor: AppPalette.surfaceMuted },
+  emptyAccountIcon: { ...Glyph.md, color: AppPalette.textMuted },
   externalAccountDescription: { ...Type.caption, color: '#89928C' },
   accountCopy: { flex: 1, minWidth: 0, alignItems: 'flex-start', gap: 3 },
   accountLabel: { maxWidth: '100%', ...Type.body, fontWeight: FontWeight.semibold, color: '#2D332F' },

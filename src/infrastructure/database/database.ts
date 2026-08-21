@@ -19,7 +19,7 @@ export const DATABASE_NAME = 'ledger.db';
 const internalTransferIconAsset = require('../../../assets/images/system/internal-transfer.png');
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
-  const DATABASE_VERSION = 20;
+  const DATABASE_VERSION = 22;
   const versionRow = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
   let currentVersion = versionRow?.user_version ?? 0;
   const isNewDatabase = currentVersion === 0;
@@ -116,6 +116,18 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     await addColumnIfMissing(db, 'accounts', 'deleted_at TEXT');
   }
 
+  // v21：报销是一笔实际入账的收入，并关联一组原始支出账单。
+  // exclude_from_stats 只控制收支统计，不影响收款账户的真实余额。
+  if (currentVersion > 0 && currentVersion < 21) {
+    await addColumnIfMissing(db, 'transactions', 'exclude_from_stats INTEGER NOT NULL DEFAULT 0');
+    await addColumnIfMissing(db, 'transactions', 'reimbursement_source_account_id TEXT');
+  }
+
+  // v22：普通支出可以主动标记为「待报销」，报销页只展示这类账单。
+  if (currentVersion > 0 && currentVersion < 22) {
+    await addColumnIfMissing(db, 'transactions', 'is_reimbursable INTEGER NOT NULL DEFAULT 0');
+  }
+
   await db.execAsync(`
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
@@ -164,6 +176,9 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       discount_cents INTEGER NOT NULL DEFAULT 0,
       occurred_at TEXT NOT NULL,
       note TEXT NOT NULL DEFAULT '',
+      exclude_from_stats INTEGER NOT NULL DEFAULT 0,
+      is_reimbursable INTEGER NOT NULL DEFAULT 0,
+      reimbursement_source_account_id TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       deleted_at TEXT,
@@ -175,6 +190,19 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       ON transactions(occurred_at DESC);
     CREATE INDEX IF NOT EXISTS idx_transactions_deleted_at
       ON transactions(deleted_at);
+
+    CREATE TABLE IF NOT EXISTS reimbursement_items (
+      reimbursement_transaction_id TEXT NOT NULL,
+      expense_transaction_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (reimbursement_transaction_id, expense_transaction_id),
+      UNIQUE (expense_transaction_id),
+      FOREIGN KEY (reimbursement_transaction_id) REFERENCES transactions(id) ON DELETE CASCADE,
+      FOREIGN KEY (expense_transaction_id) REFERENCES transactions(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_reimbursement_items_expense
+      ON reimbursement_items(expense_transaction_id);
 
     CREATE TABLE IF NOT EXISTS tag_groups (
       id TEXT PRIMARY KEY NOT NULL,
@@ -257,7 +285,17 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
 
   // 隐藏系统分类属于账单数据结构，不在用户分类菜单中，也不允许用户删除。
   await ensureSystemCategories(db, now);
+  await ensureReimbursementCategory(db, now);
   await persistInternalTransferIcon(db);
+
+  // 已经关联过报销的历史支出等价于曾被标记为待报销，避免升级后编辑报销记录时丢失账单。
+  if (!isNewDatabase && currentVersion < 22) {
+    await db.runAsync(`
+      UPDATE transactions
+      SET is_reimbursable = 1
+      WHERE id IN (SELECT expense_transaction_id FROM reimbursement_items)
+    `);
+  }
 
   // v17：资产初始化统一为「外部端点 ↔ 具体账户」的特殊转账。
   // 外部端点是隐藏系统账户，不参与资产与净资产展示。
@@ -294,9 +332,24 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     await addDefaultSubcategories(db);
   }
 
-  currentVersion = 20;
+  currentVersion = 22;
 
   await db.execAsync(`PRAGMA user_version = ${currentVersion}`);
+}
+
+async function ensureReimbursementCategory(db: SQLiteDatabase, now: string) {
+  await db.runAsync(
+    `INSERT OR IGNORE INTO categories
+     (id, name, type, parent_id, icon, icon_type, color, sort_order, is_archived, created_at)
+     VALUES ('reimbursement', '报销', 'income', NULL, '🧾', 'emoji', '#3B82F6', 9997, 1, ?)` ,
+    now
+  );
+  await db.runAsync(
+    `UPDATE categories
+     SET name = '报销', type = 'income', parent_id = NULL, icon = '🧾', icon_type = 'emoji',
+         color = '#3B82F6', is_archived = 1
+     WHERE id = 'reimbursement'`
+  );
 }
 
 async function ensureExternalTransferAccount(db: SQLiteDatabase, now: string) {

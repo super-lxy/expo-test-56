@@ -20,7 +20,7 @@ async function generateEncryptionKey(): Promise<string> {
   const randomBytes = await Crypto.getRandomBytesAsync(KEY_LENGTH);
 
   // Convert to base64 for storage
-  return Buffer.from(randomBytes).toString('base64');
+  return btoa(String.fromCharCode(...randomBytes));
 }
 
 /**
@@ -75,7 +75,7 @@ export async function hasEncryptionKey(): Promise<boolean> {
   try {
     const key = await SecureStore.getItemAsync(ENCRYPTION_KEY_STORAGE_KEY);
     return key !== null;
-  } catch (error) {
+  } catch {
     return false;
   }
 }

@@ -3,9 +3,9 @@
   "main": "expo-router/entry",
   "version": "0.1.0",
   "dependencies": {
-    "@expo/ui": "~56.0.24",
+    "@expo/ui": "~56.0.26",
     "@react-native-community/datetimepicker": "9.1.0",
-    "expo": "~56.0.18",
+    "expo": "~56.0.20",
     "expo-asset": "~56.0.22",
     "expo-constants": "~56.0.22",
     "expo-crypto": "~56.0.0",
@@ -13,16 +13,16 @@
     "expo-file-system": "~56.0.9",
     "expo-font": "~56.0.7",
     "expo-glass-effect": "~56.0.4",
-    "expo-image": "~56.0.11",
-    "expo-image-manipulator": "~56.0.24",
-    "expo-image-picker": "~56.0.23",
-    "expo-linking": "~56.0.16",
-    "expo-router": "~56.2.17",
+    "expo-image": "~56.0.12",
+    "expo-image-manipulator": "~56.0.25",
+    "expo-image-picker": "~56.0.24",
+    "expo-linking": "~56.0.17",
+    "expo-router": "~56.2.19",
     "expo-secure-store": "~56.0.4",
     "expo-splash-screen": "~56.0.14",
     "expo-sqlite": "~56.0.5",
     "expo-status-bar": "~56.0.4",
-    "expo-symbols": "~56.0.6",
+    "expo-symbols": "~56.0.7",
     "expo-system-ui": "~56.0.5",
     "expo-web-browser": "~56.0.6",
     "openai": "^7.4.0",
@@ -65,21 +65,6 @@
     "autolinking": {
       "nativeModulesDir": "./modules"
     }
-  },
-  "jest": {
-    "preset": "jest-expo",
-    "transformIgnorePatterns": [
-      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg)"
-    ],
-    "collectCoverageFrom": [
-      "src/**/*.{ts,tsx}",
-      "!src/**/*.d.ts",
-      "!src/**/*.types.ts",
-      "!src/app/**/*"
-    ],
-    "testMatch": [
-      "**/__tests__/**/*.test.{ts,tsx}"
-    ]
   },
   "private": true
 }

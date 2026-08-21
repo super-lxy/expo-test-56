@@ -36,6 +36,7 @@ export function TransactionItem({
 }) {
   const isIncome = transaction.type === 'income';
   const isTransfer = transaction.type === 'transfer';
+  const isReimbursement = transaction.categoryId === 'reimbursement';
   const isInitialBalance = transaction.categoryId === 'initial-balance';
   const isInternalTransfer = isTransfer || isInitialBalance;
   const initialBalancePrefix = transaction.accountId === EXTERNAL_TRANSFER_ACCOUNT_ID
@@ -47,21 +48,34 @@ export function TransactionItem({
         : '-';
   const color = isInitialBalance
     ? initialBalancePrefix === '-' ? AppPalette.danger : AppPalette.income
-    : isTransfer
-      ? AppPalette.ink
-      : isIncome
-        ? AppPalette.income
-        : AppPalette.danger;
+    : isReimbursement
+      ? AppPalette.primary
+      : isTransfer
+        ? AppPalette.ink
+        : isIncome
+          ? AppPalette.income
+          : AppPalette.danger;
   const accentColor = isInternalTransfer
     ? AppPalette.transfer
-    : transaction.categoryColor;
+    : isReimbursement
+      ? AppPalette.primary
+      : transaction.categoryColor;
   const cardBackground = AppPalette.surface;
   const cardBorderColor = AppPalette.line;
   const iconBackground = AppPalette.surfaceMuted;
   const title = isInternalTransfer
     ? '内部转账'
-    : transaction.categoryName;
+    : isReimbursement
+      ? '报销'
+      : transaction.categoryName;
   const subtitle = (() => {
+    if (isReimbursement) {
+      return [
+        `${transaction.reimbursementSourceAccountName ?? '账外'} → ${transaction.accountName}`,
+        transaction.reimbursedExpenseIds.length > 0 ? `${transaction.reimbursedExpenseIds.length} 笔账单` : '',
+        transaction.note,
+      ].filter(Boolean).join(' · ');
+    }
     if (isInitialBalance) {
       const initializedAccountName = transaction.accountId === EXTERNAL_TRANSFER_ACCOUNT_ID
         ? transaction.transferAccountName ?? '账户'
@@ -77,7 +91,7 @@ export function TransactionItem({
       ].filter(Boolean).join(' · ');
     }
     const duplicateLabels = new Set([title, transaction.categoryName]);
-    return [transaction.accountName, transaction.parentCategoryName, transaction.note]
+    return [transaction.accountName, transaction.note]
       .map((value) => value?.trim())
       .filter((value): value is string => Boolean(value) && !duplicateLabels.has(value))
       .filter((value, index, values) => values.indexOf(value) === index)
